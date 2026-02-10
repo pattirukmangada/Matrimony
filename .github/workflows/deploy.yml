@@ -13,18 +13,16 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    # ---------- FRONTEND ----------
+    # ---------- FRONTEND (ROOT) ----------
     - name: Setup Node
       uses: actions/setup-node@v3
       with:
         node-version: 18
 
     - name: Install dependencies
-      working-directory: ./frontend
       run: npm install
 
     - name: Build React app
-      working-directory: ./frontend
       run: npm run build
 
     - name: Deploy React to public_html
@@ -33,7 +31,7 @@ jobs:
         server: ${{ secrets.FTP_SERVER }}
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: ./frontend/dist/
+        local-dir: ./dist/
         server-dir: public_html/
 
     # ---------- BACKEND ----------
@@ -49,3 +47,4 @@ jobs:
           **/.git*
           **/.github*
           **/node_modules/**
+          **/.env
