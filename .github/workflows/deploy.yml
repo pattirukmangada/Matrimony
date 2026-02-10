@@ -13,7 +13,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    # ---------- FRONTEND (ROOT) ----------
+    # ---------- FRONTEND ----------
     - name: Setup Node
       uses: actions/setup-node@v3
       with:
@@ -25,22 +25,28 @@ jobs:
     - name: Build React app
       run: npm run build
 
-    - name: Deploy React to public_html
+    - name: Deploy React to public_html (FTPS)
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
       with:
         server: ${{ secrets.FTP_SERVER }}
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
+        protocol: ftps
+        port: 21
+        security: strict
         local-dir: ./dist/
         server-dir: public_html/
 
     # ---------- BACKEND ----------
-    - name: Deploy Backend to /api
+    - name: Deploy Backend to /api (FTPS)
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
       with:
         server: ${{ secrets.FTP_SERVER }}
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
+        protocol: ftps
+        port: 21
+        security: strict
         local-dir: ./backend/
         server-dir: public_html/api/
         exclude: |
