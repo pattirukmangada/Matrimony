@@ -1,4 +1,4 @@
-name: 🚀 Deploy via SSH
+name: Build and Deploy to Hostinger
 
 on:
   push:
@@ -6,33 +6,38 @@ on:
       - main
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
-      # If React frontend exists
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
           node-version: 18
 
-      - name: Install & Build Frontend
-        run: |
-          npm install
-          npm run build
+      - name: Install Dependencies
+        run: npm install
 
-      - name: Deploy to Server via SSH
-        uses: appleboy/ssh-action@v0.1.10
+      - name: Build React App
+        run: npm run build
+
+      - name: Prepare Production Files
+        run: |
+          mkdir production
+          cp -r dist/* production/
+          cp -r backend production/backend
+
+      - name: Deploy to Hostinger
+        uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          password: ${{ secrets.PASSWORD }}
+          host: ${{ secrets.HOSTINGER_HOST }}
+          username: ${{ secrets.HOSTINGER_USER }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY }}
           port: ${{ secrets.PORT }}
-          script: |
-            cd public_html
-            git pull origin main
-            npm install --production
-            echo "Deployment completed"
+          source: "production/*"
+          target: "/home/u433748162/domains/matrimony.rukmantech.com/public_html"
+          strip_components: 1
+          overwrite: true
