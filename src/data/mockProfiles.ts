@@ -80,3 +80,10 @@ export const mockProfiles: ProfileData[] = [
     verified: ["mobile", "email", "id"],
   },
 ];
+
+import img1 from "@/assets/hero-bg.jpg"
+import img2 from "@/assets/hero-1.png"
+import img3 from "@/assets/hero-2.png"
+import img4 from "@/assets/hero-3.png"
+
+export const heroImages = [img1, img2, img3, img4]

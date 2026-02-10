@@ -1,10 +1,11 @@
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Search, Shield, Heart, Star, Users, CheckCircle, ArrowRight } from "lucide-react";
 import ProfileCard from "@/components/ProfileCard";
 import { mockProfiles } from "@/data/mockProfiles";
-import heroBg from "@/assets/hero-bg.jpg";
+import { heroImages } from "@/data/mockProfiles";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
@@ -28,6 +29,16 @@ const successStories = [
 ];
 
 const Index = () => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % heroImages.length);
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -35,9 +46,22 @@ const Index = () => {
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0">
-          <img src={heroBg} alt="" className="h-full w-full object-cover" />
+          <AnimatePresence mode="wait">
+            <motion.img
+              key={currentIndex}
+              src={heroImages[currentIndex]}
+              alt=""
+              className="h-full w-full object-cover absolute inset-0"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.5 }}
+            />
+          </AnimatePresence>
+
           <div className="absolute inset-0 bg-gradient-to-r from-foreground/80 via-foreground/60 to-foreground/40" />
         </div>
+
         <div className="container relative z-10 flex min-h-[85vh] flex-col items-start justify-center py-20">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -48,13 +72,16 @@ const Index = () => {
             <span className="mb-4 inline-flex items-center gap-2 rounded-full bg-primary/20 px-4 py-1.5 text-sm font-medium text-primary-foreground backdrop-blur-sm">
               <Heart className="h-4 w-4 fill-current" /> India's Most Trusted Matrimony
             </span>
+
             <h1 className="mb-6 font-display text-5xl font-bold leading-tight text-primary-foreground md:text-6xl lg:text-7xl">
               Find Your <br />
               <span className="text-gradient-gold">Perfect Match</span>
             </h1>
+
             <p className="mb-8 max-w-lg text-lg text-primary-foreground/80">
-              Join lakhs of verified profiles and discover your life partner. Trusted by families across India for over a decade.
+              Join lakhs of verified profiles and discover your life partner.
             </p>
+
             <div className="flex flex-col gap-3 sm:flex-row">
               <Link to="/register">
                 <Button variant="hero" size="xl">
