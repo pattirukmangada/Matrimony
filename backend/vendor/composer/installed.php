@@ -1,9 +1,9 @@
 <?php return array(
     'root' => array(
         'name' => 'vivahbandhan/api',
-        'pretty_version' => '1.0.0+no-version-set',
-        'version' => '1.0.0.0',
-        'reference' => null,
+        'pretty_version' => 'dev-main',
+        'version' => 'dev-main',
+        'reference' => 'ad49e8f6fa41fddd1fc8cdec4861d5b1d6e1a44e',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -29,9 +29,9 @@
             'dev_requirement' => false,
         ),
         'vivahbandhan/api' => array(
-            'pretty_version' => '1.0.0+no-version-set',
-            'version' => '1.0.0.0',
-            'reference' => null,
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
+            'reference' => 'ad49e8f6fa41fddd1fc8cdec4861d5b1d6e1a44e',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

@@ -5,8 +5,6 @@
 --   mysql -u root -p < schema.sql
 -- ============================================================
 
-CREATE DATABASE IF NOT EXISTS vivahbandhan CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE vivahbandhan;
 
 -- ============================================================
 -- 1. USERS TABLE (Authentication)
