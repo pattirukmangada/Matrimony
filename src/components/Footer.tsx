@@ -35,14 +35,14 @@ const Footer = () => (
         <div>
           <h4 className="mb-4 text-sm font-semibold text-foreground">Contact Us</h4>
           <div className="flex flex-col gap-2 text-sm text-muted-foreground">
-            <p>support@vivahbandhan.com</p>
-            <p>+91 98765 43210</p>
-            <p>Mumbai, Maharashtra, India</p>
+            <a href="mailto:pattirukmangada2002@gmail.com"><p>pattirukmangada2002@gmail.com</p></a>
+            <a href="tel:+919515692040"><p>+91 95156 92040</p></a>
+            <p>Allagadda, Andhra Pradesh, India</p>
           </div>
         </div>
       </div>
       <div className="mt-10 border-t border-border pt-6 text-center text-sm text-muted-foreground">
-        © 2026 VivahBandhan. All rights reserved.
+        © 2026 RWS Solutions. All rights reserved.
       </div>
     </div>
   </footer>
