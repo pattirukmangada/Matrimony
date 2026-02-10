@@ -1,0 +1,22 @@
+RewriteEngine On
+
+# Redirect all API requests to the correct PHP files
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# CORS headers
+Header set Access-Control-Allow-Origin "*"
+Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+Header set Access-Control-Allow-Headers "Content-Type, Authorization"
+
+# Block access to config files
+<FilesMatch "\.(env|json|lock|md)$">
+    Order deny,allow
+    Deny from all
+</FilesMatch>
+
+# Block access to vendor directory from web
+<DirectoryMatch "vendor">
+    Order deny,allow
+    Deny from all
+</DirectoryMatch>
