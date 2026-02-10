@@ -1,4 +1,4 @@
-name: Deploy to Hostinger
+name: 🚀 Deploy via SSH
 
 on:
   push:
@@ -10,47 +10,29 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-    # ---------- FRONTEND ----------
-    - name: Setup Node
-      uses: actions/setup-node@v3
-      with:
-        node-version: 18
+      # If React frontend exists
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
 
-    - name: Install dependencies
-      run: npm install
+      - name: Install & Build Frontend
+        run: |
+          npm install
+          npm run build
 
-    - name: Build React app
-      run: npm run build
-
-    - name: Deploy React to public_html (FTPS)
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-      with:
-        server: ${{ secrets.FTP_SERVER }}
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        protocol: ftps
-        port: 21
-        security: strict
-        local-dir: ./dist/
-        server-dir: public_html/
-
-    # ---------- BACKEND ----------
-    - name: Deploy Backend to /api (FTPS)
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-      with:
-        server: ${{ secrets.FTP_SERVER }}
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        protocol: ftps
-        port: 21
-        security: strict
-        local-dir: ./backend/
-        server-dir: public_html/api/
-        exclude: |
-          **/.git*
-          **/.github*
-          **/node_modules/**
-          **/.env
+      - name: Deploy to Server via SSH
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          port: ${{ secrets.PORT }}
+          script: |
+            cd public_html
+            git pull origin main
+            npm install --production
+            echo "Deployment completed"
