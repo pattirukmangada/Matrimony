@@ -81,7 +81,7 @@ export const mockProfiles: ProfileData[] = [
   },
 ];
 
-import img1 from "@/assets/hero-bg.jpg"
+import img1 from "@/assets/hero-bg.png"
 import img2 from "@/assets/hero-1.png"
 import img3 from "@/assets/hero-2.png"
 import img4 from "@/assets/hero-3.png"
