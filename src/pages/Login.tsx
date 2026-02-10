@@ -30,7 +30,7 @@ const Login = () => {
           <Heart className="mx-auto mb-6 h-16 w-16 text-primary-foreground/80 fill-current animate-float" />
           <h2 className="mb-4 font-display text-4xl font-bold text-primary-foreground">Welcome Back</h2>
           <p className="max-w-sm text-primary-foreground/70">
-            Your journey to finding the perfect life partner continues here.h
+            Your journey to finding the perfect life partner continues here.
           </p>
         </motion.div>
       </div>
