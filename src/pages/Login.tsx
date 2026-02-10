@@ -30,7 +30,7 @@ const Login = () => {
           <Heart className="mx-auto mb-6 h-16 w-16 text-primary-foreground/80 fill-current animate-float" />
           <h2 className="mb-4 font-display text-4xl font-bold text-primary-foreground">Welcome Back</h2>
           <p className="max-w-sm text-primary-foreground/70">
-            Your journey to finding the perfect life partner continues here.
+            Your journey to finding the perfect life partner continues here.h
           </p>
         </motion.div>
       </div>
@@ -86,7 +86,7 @@ const Login = () => {
               </label>
               <a href="#" className="text-primary hover:underline">Forgot Password?</a>
             </div>
-            <Button variant="crimson" size="lg" type="submit" className="w-full">Sign In</Button>
+            <Button variant="default" size="lg" type="submit" className="w-full">Sign In</Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
