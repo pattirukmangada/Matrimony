@@ -1,15 +1,17 @@
 <?php
 /**
  * POST /api/auth/register.php
- * 
- * Register new user + send OTP.
- * Profile is visible only after admin approval.
+ *
+ * Register new user + send EMAIL OTP only.
+ * Profile becomes active after email verification + admin approval.
  */
 
 require_once __DIR__ . '/../../config/cors.php';
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../config/mail.php';
 require_once __DIR__ . '/../../services/OTPService.php';
+
+header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -67,29 +69,38 @@ if (!empty($errors)) {
 
 // ---------------- DATABASE ----------------
 
-$db = (new Database())->getConnection();
-
-// Check duplicate
-$stmt = $db->prepare("SELECT id FROM users WHERE email = :email OR mobile = :mobile LIMIT 1");
-$stmt->execute(['email' => $email, 'mobile' => $mobile]);
-if ($stmt->fetch()) {
-    http_response_code(409);
-    echo json_encode(['error' => 'Email or mobile number already registered']);
-    exit;
-}
-
-// Hash password
-$passwordHash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
-
 try {
+
+    $db = (new Database())->getConnection();
+
+    // Check duplicate
+    $stmt = $db->prepare("
+        SELECT id FROM users 
+        WHERE email = :email OR mobile = :mobile 
+        LIMIT 1
+    ");
+    $stmt->execute([
+        'email'  => $email,
+        'mobile' => $mobile
+    ]);
+
+    if ($stmt->fetch()) {
+        http_response_code(409);
+        echo json_encode(['error' => 'Email or mobile already registered']);
+        exit;
+    }
+
+    // Hash password
+    $passwordHash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
+
     $db->beginTransaction();
 
     // Insert user
     $stmt = $db->prepare("
         INSERT INTO users 
-        (full_name, email, mobile, gender, dob, religion, location, password_hash, status)
+        (full_name, email, mobile, gender, dob, religion, location, password_hash, status, email_verified)
         VALUES 
-        (:full_name, :email, :mobile, :gender, :dob, :religion, :location, :password_hash, 'pending')
+        (:full_name, :email, :mobile, :gender, :dob, :religion, :location, :password_hash, 'pending', 0)
     ");
 
     $stmt->execute([
@@ -106,29 +117,36 @@ try {
     $userId = (int)$db->lastInsertId();
 
     // Privacy settings
-    $stmt = $db->prepare("INSERT INTO privacy_settings (user_id) VALUES (:user_id)");
+    $stmt = $db->prepare("
+        INSERT INTO privacy_settings (user_id) 
+        VALUES (:user_id)
+    ");
     $stmt->execute(['user_id' => $userId]);
 
     // Verification record
-    $stmt = $db->prepare("INSERT INTO profile_verifications (user_id) VALUES (:user_id)");
+    $stmt = $db->prepare("
+        INSERT INTO profile_verifications (user_id) 
+        VALUES (:user_id)
+    ");
     $stmt->execute(['user_id' => $userId]);
 
-    // ---------------- OTP ----------------
+    // ---------------- EMAIL OTP ----------------
 
-    $emailOtp  = OTPService::generateOTP();
-    $mobileOtp = OTPService::generateOTP();
+    $emailOtp = OTPService::generateOTP();
 
     OTPService::storeOTP($db, $email, 'email', $emailOtp);
-    OTPService::storeOTP($db, $mobile, 'sms', $mobileOtp);
 
-    OTPService::sendEmailOTP($email, $emailOtp);
-    OTPService::sendSMSOTP($mobile, $mobileOtp);
+    if (!OTPService::sendEmailOTP($email, $emailOtp)) {
+        throw new Exception("Failed to send email OTP");
+    }
 
     // ---------------- ADMIN NOTIFICATION ----------------
 
     $stmt = $db->prepare("
-        INSERT INTO admin_notifications (type, reference_id, user_id, message)
-        VALUES ('registration', :ref_id, :user_id, :message)
+        INSERT INTO admin_notifications 
+        (type, reference_id, user_id, message)
+        VALUES 
+        ('registration', :ref_id, :user_id, :message)
     ");
 
     $stmt->execute([
@@ -141,13 +159,17 @@ try {
 
     echo json_encode([
         'success' => true,
-        'message' => 'Registration successful. OTP sent.',
+        'message' => 'Registration successful. Email OTP sent.',
         'user_id' => $userId,
     ]);
 
-} catch (Exception $e) {
+} catch (Throwable $e) {
 
-    $db->rollBack();
+    if (isset($db) && $db->inTransaction()) {
+        $db->rollBack();
+    }
+
+    error_log("Registration Error: " . $e->getMessage());
 
     http_response_code(500);
     echo json_encode([
