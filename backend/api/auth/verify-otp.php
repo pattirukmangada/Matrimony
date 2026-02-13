@@ -1,11 +1,11 @@
 <?php
 /**
  * POST /api/auth/verify-otp.php
+ * Email OTP verification only.
  */
 
 require_once __DIR__ . '/../../config/cors.php';
 require_once __DIR__ . '/../../config/database.php';
-require_once __DIR__ . '/../../config/mail.php';
 require_once __DIR__ . '/../../services/OTPService.php';
 
 header('Content-Type: application/json');
@@ -18,13 +18,20 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $input = json_decode(file_get_contents('php://input'), true);
 
-$identifier = trim($input['identifier'] ?? '');
-$type       = trim($input['type'] ?? '');
-$otp        = trim($input['otp'] ?? '');
+$email = trim($input['identifier'] ?? '');
+$type  = trim($input['type'] ?? '');
+$otp   = trim($input['otp'] ?? '');
 
-if (empty($identifier) || !in_array($type, ['email', 'sms']) || !preg_match('/^\d{6}$/', $otp)) {
+/* ---------------- VALIDATION ---------------- */
+
+if (
+    empty($email) ||
+    $type !== 'email' ||
+    !filter_var($email, FILTER_VALIDATE_EMAIL) ||
+    !preg_match('/^\d{6}$/', $otp)
+) {
     http_response_code(422);
-    echo json_encode(['error' => 'Invalid input.']);
+    echo json_encode(['error' => 'Invalid input']);
     exit;
 }
 
@@ -32,35 +39,32 @@ try {
 
     $db = (new Database())->getConnection();
 
-    if (!OTPService::verifyOTP($db, $identifier, $type, $otp)) {
+    // Verify OTP
+    if (!OTPService::verifyOTP($db, $email, 'email', $otp)) {
         http_response_code(400);
         echo json_encode(['error' => 'Invalid or expired OTP']);
         exit;
     }
 
-    $column = $type === 'email' ? 'email_verified' : 'mobile_verified';
-    $field  = $type === 'email' ? 'email' : 'mobile';
-
-    $stmt = $db->prepare("UPDATE users SET {$column} = 1 WHERE {$field} = :identifier");
-    $stmt->execute(['identifier' => $identifier]);
-
+    // Mark email verified
     $stmt = $db->prepare("
-        SELECT id, email_verified, mobile_verified 
-        FROM users 
-        WHERE {$field} = :identifier
+        UPDATE users 
+        SET email_verified = 1 
+        WHERE email = :email
     ");
-    $stmt->execute(['identifier' => $identifier]);
-    $user = $stmt->fetch();
+    $stmt->execute(['email' => $email]);
 
-    if ($user && $user['email_verified'] && $user['mobile_verified']) {
-        $stmt = $db->prepare("UPDATE users SET is_active = 1 WHERE id = :id");
-        $stmt->execute(['id' => $user['id']]);
-    }
+    // Activate account
+    $stmt = $db->prepare("
+        UPDATE users 
+        SET is_active = 1 
+        WHERE email = :email
+    ");
+    $stmt->execute(['email' => $email]);
 
     echo json_encode([
         'success' => true,
-        'message' => ucfirst($type) . ' verified successfully.',
-        'both_verified' => (bool)($user['email_verified'] && $user['mobile_verified'])
+        'message' => 'Email verified successfully.'
     ]);
 
 } catch (Throwable $e) {
