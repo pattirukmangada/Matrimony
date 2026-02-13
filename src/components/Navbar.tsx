@@ -1,20 +1,22 @@
 import { Link, useLocation } from "react-router-dom";
-import { Heart, Menu, X, User, LogIn } from "lucide-react";
+import { Heart, Menu, X, User, LogIn, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-
-const navLinks = [
-  { to: "/", label: "Home" },
-  { to: "/search", label: "Search" },
-  { to: "/subscription", label: "Plans" },
-  { to: "/profile", label: "Profile" },
-  { to: "/admin", label: "Admin" },
-];
+import { useAuth } from "@/hooks/useAuth";
 
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const { user, isLoggedIn, isAdmin, logout } = useAuth();
+
+  const navLinks = [
+    { to: "/", label: "Home" },
+    { to: "/about", label: "About Us" },
+    { to: "/profiles", label: "Profiles" },
+    { to: "/contact", label: "Contact Us" },
+    ...(isAdmin ? [{ to: "/admin", label: "Admin" }] : []),
+  ];
 
   return (
     <nav className="sticky top-0 z-50 border-b border-border/50 bg-card/80 backdrop-blur-xl">
@@ -44,14 +46,32 @@ const Navbar = () => {
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
-          <Link to="/login">
-            <Button variant="ghost" size="sm">
-              <LogIn className="mr-1 h-4 w-4" /> Login
-            </Button>
-          </Link>
-          <Link to="/register">
-            <Button variant="crimson" size="sm">Register Free</Button>
-          </Link>
+          {isLoggedIn ? (
+            <>
+              <Link to="/profile">
+                <Button variant="ghost" size="sm">
+                  <User className="mr-1 h-4 w-4" /> My Profile
+                </Button>
+              </Link>
+              <span className="text-sm text-muted-foreground">
+                Hi, <span className="font-medium text-foreground">{user?.full_name?.split(" ")[0]}</span>
+              </span>
+              <Button variant="ghost" size="sm" onClick={logout}>
+                <LogOut className="mr-1 h-4 w-4" /> Logout
+              </Button>
+            </>
+          ) : (
+            <>
+              <Link to="/login">
+                <Button variant="ghost" size="sm">
+                  <LogIn className="mr-1 h-4 w-4" /> Login
+                </Button>
+              </Link>
+              <Link to="/register">
+                <Button variant="crimson" size="sm">Register Free</Button>
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Mobile toggle */}
@@ -88,12 +108,25 @@ const Navbar = () => {
                 </Link>
               ))}
               <div className="mt-2 flex gap-2">
-                <Link to="/login" className="flex-1" onClick={() => setMobileOpen(false)}>
-                  <Button variant="outline" className="w-full">Login</Button>
-                </Link>
-                <Link to="/register" className="flex-1" onClick={() => setMobileOpen(false)}>
-                  <Button variant="crimson" className="w-full">Register</Button>
-                </Link>
+                {isLoggedIn ? (
+                  <>
+                    <Link to="/profile" className="flex-1" onClick={() => setMobileOpen(false)}>
+                      <Button variant="outline" className="w-full"><User className="mr-1 h-4 w-4" /> My Profile</Button>
+                    </Link>
+                    <Button variant="ghost" className="flex-1" onClick={() => { logout(); setMobileOpen(false); }}>
+                      <LogOut className="mr-1 h-4 w-4" /> Logout
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Link to="/login" className="flex-1" onClick={() => setMobileOpen(false)}>
+                      <Button variant="outline" className="w-full">Login</Button>
+                    </Link>
+                    <Link to="/register" className="flex-1" onClick={() => setMobileOpen(false)}>
+                      <Button variant="crimson" className="w-full">Register</Button>
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>

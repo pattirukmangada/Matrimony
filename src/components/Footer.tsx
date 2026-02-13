@@ -19,30 +19,32 @@ const Footer = () => (
         <div>
           <h4 className="mb-4 text-sm font-semibold text-foreground">Quick Links</h4>
           <div className="flex flex-col gap-2">
-            {["Search Profiles", "Premium Plans", "Success Stories", "Help"].map((l) => (
-              <a key={l} href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">{l}</a>
-            ))}
+            <Link to="/profiles" className="text-sm text-muted-foreground hover:text-primary transition-colors">Browse Profiles</Link>
+            <Link to="/subscription" className="text-sm text-muted-foreground hover:text-primary transition-colors">Premium Plans</Link>
+            <Link to="/register" className="text-sm text-muted-foreground hover:text-primary transition-colors">Register Free</Link>
+            <Link to="/login" className="text-sm text-muted-foreground hover:text-primary transition-colors">Login</Link>
           </div>
         </div>
         <div>
           <h4 className="mb-4 text-sm font-semibold text-foreground">Information</h4>
           <div className="flex flex-col gap-2">
-            {["About Us", "Privacy Policy", "Terms of Service", "Contact"].map((l) => (
-              <a key={l} href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">{l}</a>
-            ))}
+            <Link to="/about" className="text-sm text-muted-foreground hover:text-primary transition-colors">About Us</Link>
+            <Link to="/contact" className="text-sm text-muted-foreground hover:text-primary transition-colors">Contact Us</Link>
+            <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">Privacy Policy</a>
+            <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">Terms of Service</a>
           </div>
         </div>
         <div>
           <h4 className="mb-4 text-sm font-semibold text-foreground">Contact Us</h4>
           <div className="flex flex-col gap-2 text-sm text-muted-foreground">
-            <a href="mailto:pattirukmangada2002@gmail.com"><p>pattirukmangada2002@gmail.com</p></a>
-            <a href="tel:+919515692040"><p>+91 95156 92040</p></a>
-            <p>Allagadda, Andhra Pradesh, India</p>
+            <p>support@vivahbandhan.com</p>
+            <p>+91 98765 43210</p>
+            <p>Mumbai, Maharashtra, India</p>
           </div>
         </div>
       </div>
       <div className="mt-10 border-t border-border pt-6 text-center text-sm text-muted-foreground">
-        © 2026 RWS Solutions. All rights reserved.
+        © 2026 VivahBandhan. All rights reserved.
       </div>
     </div>
   </footer>

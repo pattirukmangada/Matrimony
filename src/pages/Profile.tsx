@@ -1,165 +1,156 @@
+import { useState, useEffect } from "react";
+import { Search as SearchIcon, SlidersHorizontal, Loader2, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import ProfileCard, { type ProfileData } from "@/components/ProfileCard";
+import { SearchAPI } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import VerificationBadge from "@/components/VerificationBadge";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Camera, Edit, MapPin, Briefcase, GraduationCap, Heart, User } from "lucide-react";
 import { motion } from "framer-motion";
-
-const Profile = () => {
-  const profile = {
-    name: "Priya Sharma",
-    age: 26,
-    gender: "Female",
-    dob: "15 March 1999",
-    height: "5'5\"",
-    religion: "Hindu",
-    caste: "Brahmin",
-    motherTongue: "Hindi",
-    maritalStatus: "Never Married",
-    location: "Mumbai, Maharashtra",
-    education: "MBA, Finance",
-    profession: "Investment Banker",
-    company: "JP Morgan",
-    income: "15-20 LPA",
-    about: "I'm a cheerful, family-oriented person who believes in building a strong, loving relationship. I enjoy reading, traveling, and trying new cuisines. Looking for a life partner who values family, honesty, and mutual respect.",
-    imageUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=600&h=800&fit=crop",
-    verified: ["mobile", "email", "premium"] as const,
-    partnerPreferences: {
-      ageRange: "27-32",
-      religion: "Hindu",
-      education: "Graduate / Post Graduate",
-      location: "Mumbai, Pune, Bangalore",
-      expectations: "Looking for someone who is kind, ambitious, and family-oriented.",
-    },
+/**
+ * Public Profiles page — shows only admin-approved profiles.
+ * No login required. Interest actions require login.
+ */
+const Profiles = () => {
+  const { toast } = useToast();
+  const [showFilters, setShowFilters] = useState(false);
+  const [profiles, setProfiles] = useState<ProfileData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
+  // Filters
+  const [location, setLocation] = useState("");
+  const [religion, setReligion] = useState("");
+  const [education, setEducation] = useState("");
+  const [ageMin, setAgeMin] = useState("");
+  const [ageMax, setAgeMax] = useState("");
+  const fetchProfiles = async () => {
+    setLoading(true);
+    try {
+      const res = await SearchAPI.search({
+        city: location || undefined,
+        religion: religion && religion !== "any" ? religion : undefined,
+        education: education && education !== "any" ? education : undefined,
+        age_min: ageMin ? Number(ageMin) : undefined,
+        age_max: ageMax ? Number(ageMax) : undefined,
+      });
+      const data = (res as any).profiles || [];
+      setTotal((res as any).total || data.length);
+      setProfiles(
+        data.map((p: any) => ({
+          id: String(p.user_id || p.id),
+          name: p.full_name || "User",
+          age: p.age || 0,
+          gender: p.gender || "",
+          location: [p.city, p.state].filter(Boolean).join(", ") || "India",
+          education: p.education || "",
+          profession: p.profession || "",
+          religion: p.religion || "",
+          height: "",
+          imageUrl: p.profile_image || "",
+          verified: [
+            p.mobile_verified && "mobile",
+            p.email_verified && "email",
+            p.id_verified && "id",
+            p.premium_verified && "premium",
+          ].filter(Boolean) as ProfileData["verified"],
+          hasAccess: false, // Public view — no access until interest accepted
+        }))
+      );
+    } catch {
+      toast({ variant: "destructive", title: "Error", description: "Failed to load profiles" });
+    } finally {
+      setLoading(false);
+    }
   };
-
+  useEffect(() => { fetchProfiles(); }, []);
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container py-8">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          {/* Profile header */}
-          <div className="mb-8 flex flex-col gap-6 rounded-2xl border border-border bg-card p-6 md:flex-row md:items-start">
-            <div className="relative shrink-0">
-              <img
-                src={profile.imageUrl}
-                alt={profile.name}
-                className="h-48 w-48 rounded-2xl object-cover shadow-elegant"
-              />
-              <button className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
-                <Camera className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="flex-1">
-              <div className="flex flex-wrap items-center gap-2 mb-1">
-                <h1 className="font-display text-2xl font-bold text-foreground">{profile.name}, {profile.age}</h1>
-                {profile.verified.map((v) => (
-                  <VerificationBadge key={v} type={v} compact />
-                ))}
-              </div>
-              <div className="mt-2 flex flex-wrap gap-3 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{profile.location}</span>
-                <span className="flex items-center gap-1"><GraduationCap className="h-3.5 w-3.5" />{profile.education}</span>
-                <span className="flex items-center gap-1"><Briefcase className="h-3.5 w-3.5" />{profile.profession}</span>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {profile.verified.map((v) => (
-                  <VerificationBadge key={v} type={v} />
-                ))}
-              </div>
-              <div className="mt-4 flex gap-3">
-                <Button variant="crimson"><Edit className="mr-1 h-4 w-4" /> Edit Profile</Button>
-                <Button variant="outline"><Heart className="mr-1 h-4 w-4" /> Send Interest</Button>
-              </div>
-            </div>
+          <div className="mb-2 flex items-center gap-2">
+            <Users className="h-7 w-7 text-primary" />
+            <h1 className="font-display text-3xl font-bold text-foreground">Verified <span className="text-primary">Profiles</span></h1>
           </div>
-
-          {/* Tabs */}
-          <Tabs defaultValue="about" className="w-full">
-            <TabsList className="mb-6 grid w-full grid-cols-3 bg-muted">
-              <TabsTrigger value="about">About</TabsTrigger>
-              <TabsTrigger value="preferences">Partner Preferences</TabsTrigger>
-              <TabsTrigger value="gallery">Gallery</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="about" className="space-y-6">
-              <div className="rounded-xl border border-border bg-card p-6">
-                <h3 className="mb-3 font-display text-lg font-semibold text-foreground">About Me</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{profile.about}</p>
-              </div>
-              <div className="rounded-xl border border-border bg-card p-6">
-                <h3 className="mb-4 font-display text-lg font-semibold text-foreground">Basic Details</h3>
-                <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-                  {[
-                    { label: "Date of Birth", value: profile.dob },
-                    { label: "Height", value: profile.height },
-                    { label: "Religion", value: profile.religion },
-                    { label: "Caste", value: profile.caste },
-                    { label: "Mother Tongue", value: profile.motherTongue },
-                    { label: "Marital Status", value: profile.maritalStatus },
-                  ].map((item) => (
-                    <div key={item.label}>
-                      <p className="text-xs text-muted-foreground">{item.label}</p>
-                      <p className="mt-0.5 text-sm font-medium text-foreground">{item.value}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="rounded-xl border border-border bg-card p-6">
-                <h3 className="mb-4 font-display text-lg font-semibold text-foreground">Education & Career</h3>
-                <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-                  {[
-                    { label: "Education", value: profile.education },
-                    { label: "Profession", value: profile.profession },
-                    { label: "Company", value: profile.company },
-                    { label: "Annual Income", value: profile.income },
-                  ].map((item) => (
-                    <div key={item.label}>
-                      <p className="text-xs text-muted-foreground">{item.label}</p>
-                      <p className="mt-0.5 text-sm font-medium text-foreground">{item.value}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="preferences">
-              <div className="rounded-xl border border-border bg-card p-6">
-                <h3 className="mb-4 font-display text-lg font-semibold text-foreground">Partner Preferences</h3>
-                <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-                  {[
-                    { label: "Age Range", value: profile.partnerPreferences.ageRange },
-                    { label: "Religion", value: profile.partnerPreferences.religion },
-                    { label: "Education", value: profile.partnerPreferences.education },
-                    { label: "Location", value: profile.partnerPreferences.location },
-                  ].map((item) => (
-                    <div key={item.label}>
-                      <p className="text-xs text-muted-foreground">{item.label}</p>
-                      <p className="mt-0.5 text-sm font-medium text-foreground">{item.value}</p>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4">
-                  <p className="text-xs text-muted-foreground">Expectations</p>
-                  <p className="mt-0.5 text-sm text-foreground">{profile.partnerPreferences.expectations}</p>
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="gallery">
-              <div className="rounded-xl border border-border bg-card p-6 text-center">
-                <User className="mx-auto mb-3 h-12 w-12 text-muted-foreground/30" />
-                <p className="text-sm text-muted-foreground">Photo gallery will be available after API integration</p>
-                <Button variant="outline" className="mt-4"><Camera className="mr-1 h-4 w-4" /> Upload Photos</Button>
-              </div>
-            </TabsContent>
-          </Tabs>
+          <p className="mb-8 text-muted-foreground">Browse admin-approved profiles. Login to send interest and view full details.</p>
         </motion.div>
+        {/* Search & filter bar */}
+        <div className="mb-6 flex gap-3">
+          <div className="relative flex-1">
+            <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="Search by location..." className="pl-10" value={location} onChange={(e) => setLocation(e.target.value)} />
+          </div>
+          <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
+            <SlidersHorizontal className="mr-2 h-4 w-4" /> Filters
+          </Button>
+          <Button variant="crimson" onClick={fetchProfiles} disabled={loading}>
+            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <SearchIcon className="mr-2 h-4 w-4" />} Search
+          </Button>
+        </div>
+        {showFilters && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mb-8 overflow-hidden rounded-xl border border-border bg-card p-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <Label>Age Range</Label>
+                <div className="mt-1.5 flex gap-2">
+                  <Input type="number" placeholder="Min" min={18} max={60} value={ageMin} onChange={(e) => setAgeMin(e.target.value)} />
+                  <Input type="number" placeholder="Max" min={18} max={60} value={ageMax} onChange={(e) => setAgeMax(e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <Label>Religion</Label>
+                <Select value={religion} onValueChange={setReligion}>
+                  <SelectTrigger className="mt-1.5"><SelectValue placeholder="Any" /></SelectTrigger>
+                  <SelectContent>
+                    {["any", "hindu", "muslim", "christian", "sikh", "jain"].map((r) => (
+                      <SelectItem key={r} value={r}>{r === "any" ? "Any" : r.charAt(0).toUpperCase() + r.slice(1)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Education</Label>
+                <Select value={education} onValueChange={setEducation}>
+                  <SelectTrigger className="mt-1.5"><SelectValue placeholder="Any" /></SelectTrigger>
+                  <SelectContent>
+                    {["any", "B.Tech", "MBA", "MBBS", "CA", "M.Tech", "PhD"].map((e) => (
+                      <SelectItem key={e} value={e.toLowerCase()}>{e === "any" ? "Any" : e}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-end">
+                <Button variant="crimson" className="w-full" onClick={fetchProfiles} disabled={loading}>Apply</Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+        {/* Results */}
+        {loading ? (
+          <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+        ) : profiles.length > 0 ? (
+          <>
+            <p className="mb-4 text-sm text-muted-foreground">{total} verified profile{total !== 1 && "s"}</p>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {profiles.map((profile, i) => (
+                <motion.div key={profile.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+                  <ProfileCard profile={profile} />
+                </motion.div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="py-20 text-center">
+            <Users className="mx-auto mb-3 h-12 w-12 text-muted-foreground/30" />
+            <p className="text-muted-foreground">No profiles found. Check back soon!</p>
+          </div>
+        )}
       </div>
       <Footer />
     </div>
   );
 };
-
-export default Profile;
+export default Profiles;
