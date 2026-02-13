@@ -1,43 +1,26 @@
-/**
- * VivahBandhan - API Service Layer
- * 
- * Connects React frontend to PHP REST API backend.
- * Handles JWT token management, request/response formatting,
- * and all API endpoint calls.
- * 
- * Configuration:
- *   Set VITE_API_BASE_URL in your .env file:
- *   VITE_API_BASE_URL=https://matrimony.rukmantech.com/backend/api
- */
-// ─── Config ───────────────────────────────────────────────────
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://matrimony.rukmantech.com/backend/api';
-// ─── Token Management ─────────────────────────────────────────
-const TOKEN_KEY = 'vb_token';
-const USER_KEY = 'vb_user';
-export const TokenService = {
-  getToken: (): string | null => localStorage.getItem(TOKEN_KEY),
-  setToken: (token: string) => localStorage.setItem(TOKEN_KEY, token),
-  removeToken: () => localStorage.removeItem(TOKEN_KEY),
-  getUser: (): StoredUser | null => {
-    const raw = localStorage.getItem(USER_KEY);
-    return raw ? JSON.parse(raw) : null;
-  },
-  setUser: (user: StoredUser) => localStorage.setItem(USER_KEY, JSON.stringify(user)),
-  removeUser: () => localStorage.removeItem(USER_KEY),
-  isLoggedIn: (): boolean => !!localStorage.getItem(TOKEN_KEY),
-  logout: () => {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-  },
-};
-// ─── Types ────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// VivahBandhan API Service Layer (STRICT SAFE)
+// ─────────────────────────────────────────────
+
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ??
+  "https://matrimony.rukmantech.com/backend/api";
+
+const TOKEN_KEY = "vb_token";
+const USER_KEY = "vb_user";
+
+// ─────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────
+
 export interface StoredUser {
   id: number;
   full_name: string;
   email: string;
   admin_approved: boolean;
-  role?: 'user' | 'admin';
+  role?: "user" | "admin";
 }
+
 export interface ApiResponse<T = unknown> {
   success?: boolean;
   error?: string;
@@ -45,324 +28,349 @@ export interface ApiResponse<T = unknown> {
   data?: T;
   [key: string]: unknown;
 }
-export interface RegisterPayload {
-  full_name: string;
-  email: string;
-  mobile: string;
-  password: string;
-  gender: string;
-  dob: string;
-  religion: string;
-  location: string;
+
+// ─────────────────────────────────────────────
+// Token Service
+// ─────────────────────────────────────────────
+
+export const TokenService = {
+  getToken(): string | null {
+    return localStorage.getItem(TOKEN_KEY);
+  },
+
+  setToken(token: string): void {
+    localStorage.setItem(TOKEN_KEY, token);
+  },
+
+  removeToken(): void {
+    localStorage.removeItem(TOKEN_KEY);
+  },
+
+  getUser(): StoredUser | null {
+    const raw = localStorage.getItem(USER_KEY);
+    if (!raw) return null;
+
+    try {
+      return JSON.parse(raw) as StoredUser;
+    } catch {
+      return null;
+    }
+  },
+
+  setUser(user: StoredUser): void {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  },
+
+  removeUser(): void {
+    localStorage.removeItem(USER_KEY);
+  },
+
+  isLoggedIn(): boolean {
+    return Boolean(localStorage.getItem(TOKEN_KEY));
+  },
+
+  logout(): void {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+  },
+};
+
+// ─────────────────────────────────────────────
+// API Error
+// ─────────────────────────────────────────────
+
+export class ApiError extends Error {
+  readonly status: number;
+  readonly data?: unknown;
+
+  constructor(message: string, status: number, data?: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.data = data;
+  }
 }
-export interface LoginPayload {
-  email: string;
-  password: string;
-}
-export interface OTPPayload {
-  identifier: string;
-  type: 'email' | 'sms';
-  otp: string;
-}
-export interface ProfileUpdatePayload {
-  gender?: string;
-  date_of_birth?: string;
-  height_cm?: number;
-  religion?: string;
-  caste?: string;
-  mother_tongue?: string;
-  marital_status?: string;
-  city?: string;
-  state?: string;
-  education?: string;
-  profession?: string;
-  company?: string;
-  annual_income?: string;
-  about_me?: string;
-  partner_preferences?: {
-    preferred_age_min?: number;
-    preferred_age_max?: number;
-    preferred_religion?: string;
-    preferred_caste?: string;
-    preferred_education?: string;
-    preferred_location?: string;
-    preferred_income?: string;
-    expectations?: string;
-  };
-}
-export interface SearchFilters {
-  age_min?: number;
-  age_max?: number;
-  religion?: string;
-  caste?: string;
-  city?: string;
-  education?: string;
-  income?: string;
-  marital_status?: string;
-  page?: number;
-  limit?: number;
-}
-export interface InterestRespondPayload {
-  interest_id: number;
-  action: 'accept' | 'reject';
-}
-export interface MessagePayload {
-  receiver_id: number;
-  message: string;
-}
-export interface PaymentOrderPayload {
-  plan: 'gold' | 'platinum';
-}
-export interface PaymentVerifyPayload {
-  razorpay_order_id: string;
-  razorpay_payment_id: string;
-  razorpay_signature: string;
-  plan: string;
-}
-export interface AdminActionPayload {
-  user_id?: number;
-  interest_id?: number;
-  photo_id?: number;
-  verification_id?: number;
-  action: 'approve' | 'reject';
-  reason?: string;
-}
-// ─── HTTP Helper ──────────────────────────────────────────────
-async function request<T = ApiResponse>(
+
+// ─────────────────────────────────────────────
+// HTTP Helper
+// ─────────────────────────────────────────────
+
+async function request<T = unknown>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
   const token = TokenService.getToken();
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string> || {}),
+
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    ...(options.headers ?? {}),
   };
+
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
   }
+
   const response = await fetch(url, {
     ...options,
     headers,
   });
-  const data = await response.json();
-  if (!response.ok) {
-    const errorMsg = data.error || data.errors?.join(', ') || `Request failed (${response.status})`;
-    throw new ApiError(errorMsg, response.status, data);
+
+  let data: unknown;
+
+  try {
+    data = await response.json();
+  } catch {
+    throw new ApiError("Invalid server response", response.status);
   }
+
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`;
+
+    if (typeof data === "object" && data !== null) {
+      const obj = data as { error?: string; errors?: string[] };
+
+      if (typeof obj.error === "string") {
+        message = obj.error;
+      } else if (Array.isArray(obj.errors)) {
+        message = obj.errors.join(", ");
+      }
+    }
+
+    throw new ApiError(message, response.status, data);
+  }
+
   return data as T;
 }
-export class ApiError extends Error {
-  status: number;
-  data: unknown;
-  constructor(message: string, status: number, data?: unknown) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-    this.data = data;
-  }
-}
-// ─── Auth API ─────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────
+// AUTH API
+// ─────────────────────────────────────────────
+
 export const AuthAPI = {
-  /**
-   * Register new user → sends OTP to email + mobile
-   */
-  register: async (payload: RegisterPayload) => {
-    const res = await request<ApiResponse & { user_id: number }>('/auth/register.php', {
-      method: 'POST',
+  register(payload: unknown) {
+    return request("/auth/register.php", {
+      method: "POST",
       body: JSON.stringify(payload),
     });
-    return res;
   },
-  /**
-   * Verify email or mobile OTP
-   */
-  verifyOTP: async (payload: OTPPayload) => {
-    const res = await request<ApiResponse & { both_verified: boolean }>('/auth/verify-otp.php', {
-      method: 'POST',
+
+  verifyOTP(payload: unknown) {
+    return request("/auth/verify-otp.php", {
+      method: "POST",
       body: JSON.stringify(payload),
     });
-    return res;
   },
-  /**
-   * Login → returns JWT token + user info
-   */
-  login: async (payload: LoginPayload) => {
-    const res = await request<ApiResponse & { token: string; user: StoredUser }>('/auth/login.php', {
-      method: 'POST',
+
+  async login(payload: { email: string; password: string }) {
+    const res = await request<{
+      token: string;
+      user: StoredUser;
+    }>("/auth/login.php", {
+      method: "POST",
       body: JSON.stringify(payload),
     });
-    if (res.token) {
+
+    if (typeof res.token === "string") {
       TokenService.setToken(res.token);
-      TokenService.setUser({ ...res.user, role: 'user' });
+      TokenService.setUser({ ...res.user, role: "user" });
     }
+
     return res;
   },
-  /**
-   * Admin login → returns JWT token
-   */
-  adminLogin: async (payload: { username: string; password: string }) => {
-    const res = await request<ApiResponse & { token: string; admin: { id: number; username: string; full_name: string } }>('/auth/admin-login.php', {
-      method: 'POST',
+
+  async adminLogin(payload: { username: string; password: string }) {
+    const res = await request<{
+      token: string;
+      admin: { id: number; username: string; full_name: string };
+    }>("/auth/admin-login.php", {
+      method: "POST",
       body: JSON.stringify(payload),
     });
-    if (res.token) {
+
+    if (typeof res.token === "string") {
       TokenService.setToken(res.token);
       TokenService.setUser({
         id: res.admin.id,
         full_name: res.admin.full_name,
         email: res.admin.username,
         admin_approved: true,
-        role: 'admin',
+        role: "admin",
       });
     }
+
     return res;
   },
-  /** Logout — clear local storage */
-  logout: () => {
+
+  logout(): void {
     TokenService.logout();
-    window.location.href = '/login';
+    window.location.href = "/";
   },
 };
-// ─── Profile API ──────────────────────────────────────────────
+
+// ─────────────────────────────────────────────
+// PROFILE API
+// ─────────────────────────────────────────────
+
 export const ProfileAPI = {
-  /**
-   * Get profile by user ID (access-controlled by backend)
-   */
-  get: (userId: number) =>
-    request(`/profile/get.php?user_id=${userId}`),
-  /**
-   * Get own profile
-   */
-  getOwn: () => {
-    const user = TokenService.getUser();
-    if (!user) throw new ApiError('Not logged in', 401);
-    return request(`/profile/get.php?user_id=${user.id}`);
+  getOwn() {
+    return request("/profile/get.php");
   },
-  /**
-   * Update own profile + partner preferences
-   */
-  update: (payload: ProfileUpdatePayload) =>
-    request('/profile/update.php', {
-      method: 'POST',
+
+  get(userId: number) {
+    return request(`/profile/get.php?user_id=${userId}`);
+  },
+
+  update(payload: unknown) {
+    return request("/profile/update.php", {
+      method: "POST",
       body: JSON.stringify(payload),
-    }),
+    });
+  },
 };
-// ─── Search API ───────────────────────────────────────────────
+
+// ─────────────────────────────────────────────
+// SEARCH API
+// ─────────────────────────────────────────────
+
 export const SearchAPI = {
-  /**
-   * Search admin-approved profiles with filters
-   */
-  search: (filters: SearchFilters = {}) => {
+  search(
+    filters: Record<string, string | number | undefined> = {}
+  ) {
     const params = new URLSearchParams();
+
     Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== '') {
+      if (value !== undefined && value !== "") {
         params.append(key, String(value));
       }
     });
-    return request(`/search/index.php?${params.toString()}`);
+
+    const query = params.toString();
+
+    return request(
+      `/search/index.php${query ? `?${query}` : ""}`
+    );
   },
 };
-// ─── Interest API ─────────────────────────────────────────────
+
+// ─────────────────────────────────────────────
+// INTEREST API
+// ─────────────────────────────────────────────
+
 export const InterestAPI = {
-  /**
-   * Send interest to another user (admin notified)
-   */
-  send: (receiverId: number) =>
-    request('/interest/send.php', {
-      method: 'POST',
+  send(receiverId: number) {
+    return request("/interest/send.php", {
+      method: "POST",
       body: JSON.stringify({ receiver_id: receiverId }),
-    }),
-  /**
-   * Accept or reject an interest
-   */
-  respond: (payload: InterestRespondPayload) =>
-    request('/interest/respond.php', {
-      method: 'POST',
+    });
+  },
+
+  respond(payload: unknown) {
+    return request("/interest/respond.php", {
+      method: "POST",
       body: JSON.stringify(payload),
-    }),
-  /**
-   * List interests (sent or received)
-   */
-  list: (type: 'sent' | 'received') =>
-    request(`/interest/list.php?type=${type}`),
+    });
+  },
+
+  list(type: "sent" | "received") {
+    return request(`/interest/list.php?type=${type}`);
+  },
 };
-// ─── Messages API ─────────────────────────────────────────────
+
+// ─────────────────────────────────────────────
+// MESSAGES API
+// ─────────────────────────────────────────────
+
 export const MessagesAPI = {
-  /**
-   * Send a message (Gold/Platinum only)
-   */
-  send: (payload: MessagePayload) =>
-    request('/messages/send.php', {
-      method: 'POST',
+  send(payload: unknown) {
+    return request("/messages/send.php", {
+      method: "POST",
       body: JSON.stringify(payload),
-    }),
-  /**
-   * Get conversation with a user (polling-based)
-   */
-  getConversation: (userId: number, page = 1) =>
-    request(`/messages/conversation.php?user_id=${userId}&page=${page}`),
+    });
+  },
+
+  getConversation(userId: number, page = 1) {
+    return request(
+      `/messages/conversation.php?user_id=${userId}&page=${page}`
+    );
+  },
 };
-// ─── Payment API ──────────────────────────────────────────────
+
+// ─────────────────────────────────────────────
+// PAYMENT API
+// ─────────────────────────────────────────────
+
 export const PaymentAPI = {
-  /**
-   * Create Razorpay order for subscription
-   */
-  createOrder: (payload: PaymentOrderPayload) =>
-    request('/payment/create-order.php', {
-      method: 'POST',
+  createOrder(payload: unknown) {
+    return request("/payment/create-order.php", {
+      method: "POST",
       body: JSON.stringify(payload),
-    }),
-  /**
-   * Verify payment after Razorpay checkout
-   */
-  verify: (payload: PaymentVerifyPayload) =>
-    request('/payment/verify.php', {
-      method: 'POST',
+    });
+  },
+
+  verify(payload: unknown) {
+    return request("/payment/verify.php", {
+      method: "POST",
       body: JSON.stringify(payload),
-    }),
+    });
+  },
 };
-// ─── Admin API ────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────
+// ADMIN API
+// ─────────────────────────────────────────────
+
 export const AdminAPI = {
-  /** Dashboard analytics + pending counts */
-  getDashboard: () => request('/admin/dashboard.php'),
-  /** List / manage users */
-  getUsers: (page = 1, status?: string) => {
+  getDashboard() {
+    return request("/admin/dashboard.php");
+  },
+
+  getUsers(page = 1, status?: string) {
     const params = new URLSearchParams({ page: String(page) });
-    if (status) params.append('status', status);
+    if (status) params.append("status", status);
+
     return request(`/admin/users.php?${params.toString()}`);
   },
-  /** Ban or suspend a user */
-  manageUser: (userId: number, action: 'ban' | 'suspend' | 'activate') =>
-    request('/admin/users.php', {
-      method: 'POST',
+
+  manageUser(
+    userId: number,
+    action: "ban" | "suspend" | "activate"
+  ) {
+    return request("/admin/users.php", {
+      method: "POST",
       body: JSON.stringify({ user_id: userId, action }),
-    }),
-  /** Approve / reject user registration */
-  approveUser: (payload: AdminActionPayload) =>
-    request('/admin/approve-user.php', {
-      method: 'POST',
+    });
+  },
+
+  approveUser(payload: unknown) {
+    return request("/admin/approve-user.php", {
+      method: "POST",
       body: JSON.stringify(payload),
-    }),
-  /** Approve / reject interest */
-  approveInterest: (payload: AdminActionPayload) =>
-    request('/admin/approve-interest.php', {
-      method: 'POST',
+    });
+  },
+
+  approveInterest(payload: unknown) {
+    return request("/admin/approve-interest.php", {
+      method: "POST",
       body: JSON.stringify(payload),
-    }),
-  /** Approve / reject photo */
-  approvePhoto: (payload: AdminActionPayload) =>
-    request('/admin/approve-photo.php', {
-      method: 'POST',
+    });
+  },
+
+  approvePhoto(payload: unknown) {
+    return request("/admin/approve-photo.php", {
+      method: "POST",
       body: JSON.stringify(payload),
-    }),
-  /** Approve / reject ID verification */
-  verifyId: (payload: AdminActionPayload) =>
-    request('/admin/verify-id.php', {
-      method: 'POST',
+    });
+  },
+
+  verifyId(payload: unknown) {
+    return request("/admin/verify-id.php", {
+      method: "POST",
       body: JSON.stringify(payload),
-    }),
-  /** Get admin notifications */
-  getNotifications: (page = 1) =>
-    request(`/admin/notifications.php?page=${page}`),
+    });
+  },
+
+  getNotifications(page = 1) {
+    return request(`/admin/notifications.php?page=${page}`);
+  },
 };
