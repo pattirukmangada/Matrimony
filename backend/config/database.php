@@ -14,10 +14,10 @@ class Database {
     private $conn;
 
     public function __construct() {
-        $this->host     = getenv('DB_HOST') ?: 'localhost';
-        $this->db_name  = getenv('DB_NAME') ?: 'vivahbandhan';
-        $this->username = getenv('DB_USER') ?: 'root';
-        $this->password = getenv('DB_PASS') ?: '';
+        $this->host     = getenv('DB_HOST') ?: '127.0.0.1';
+        $this->db_name  = getenv('DB_NAME') ?: 'u433748162_matrimony';
+        $this->username = getenv('DB_USER') ?: 'u433748162_matrimony';
+        $this->password = getenv('DB_PASS') ?: 'Rukman@143';
     }
 
     public function getConnection(): PDO {
