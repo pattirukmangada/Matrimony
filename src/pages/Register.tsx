@@ -15,12 +15,12 @@ import { AuthAPI, ApiError } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
 const Register = () => {
-  const [showPassword, setShowPassword] = useState(false);
-  const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
-
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Step 1
   const [fullName, setFullName] = useState("");
@@ -36,44 +36,56 @@ const Register = () => {
 
   // Step 3
   const [emailOtp, setEmailOtp] = useState("");
-  const [emailVerified, setEmailVerified] = useState(false);
 
-  /* ---------------- SUBMIT HANDLER ---------------- */
+  /* ---------------- VALIDATION ---------------- */
+
+  const validateStep1 = () => {
+    if (!fullName || !email || !mobile || !password) {
+      toast({ title: "Error", description: "All fields required", variant: "destructive" });
+      return false;
+    }
+
+    if (!/^[6-9]\d{9}$/.test(mobile)) {
+      toast({ title: "Error", description: "Enter valid 10-digit mobile number", variant: "destructive" });
+      return false;
+    }
+
+    if (password.length < 8) {
+      toast({ title: "Error", description: "Password must be at least 8 characters", variant: "destructive" });
+      return false;
+    }
+
+    return true;
+  };
+
+  const validateStep2 = () => {
+    if (!gender || !dob || !religion || !location) {
+      toast({ title: "Error", description: "All fields required", variant: "destructive" });
+      return false;
+    }
+    return true;
+  };
+
+  /* ---------------- STEP SUBMIT ---------------- */
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // STEP 1 → Just move to step 2
     if (step === 1) {
-      if (!fullName || !email || !mobile || !password) {
-        toast({ title: "Error", description: "All fields required", variant: "destructive" });
-        return;
-      }
-
-      if (!/^[6-9]\d{9}$/.test(mobile)) {
-        toast({ title: "Error", description: "Enter valid 10-digit mobile number", variant: "destructive" });
-        return;
-      }
-
-      if (password.length < 8) {
-        toast({ title: "Error", description: "Password must be at least 8 characters", variant: "destructive" });
-        return;
-      }
-
+      if (!validateStep1()) return;
       setStep(2);
       return;
     }
 
+    // STEP 2 → Call register-init (SEND OTP ONLY)
     if (step === 2) {
-      if (!gender || !dob || !religion || !location) {
-        toast({ title: "Error", description: "All fields required", variant: "destructive" });
-        return;
-      }
+      if (!validateStep2()) return;
 
-      if (loading) return;
       setLoading(true);
 
       try {
-        await AuthAPI.register({
+        await AuthAPI.registerInit({
           full_name: fullName,
           email,
           mobile,
@@ -84,12 +96,12 @@ const Register = () => {
           location,
         });
 
-        setStep(3);
-
         toast({
-          title: "Registration Successful!",
-          description: "OTP sent to your email",
+          title: "OTP Sent",
+          description: "Check your email for verification code",
         });
+
+        setStep(3);
 
       } catch (err) {
         const msg =
@@ -101,7 +113,7 @@ const Register = () => {
     }
   };
 
-  /* ---------------- OTP VERIFY ---------------- */
+  /* ---------------- VERIFY OTP ---------------- */
 
   const handleVerifyOTP = async () => {
     if (emailOtp.length !== 6) {
@@ -112,25 +124,23 @@ const Register = () => {
     setLoading(true);
 
     try {
-      const res = await AuthAPI.verifyOTP({
+      await AuthAPI.verifyOTP({
         identifier: email,
         type: "email",
         otp: emailOtp,
       });
 
-      if (res.success) {
-        setEmailVerified(true);
-        setEmailOtp("");
+      toast({
+        title: "Account Created",
+        description: "Registration successful. Redirecting to login...",
+      });
 
-        toast({
-          title: "Account Activated!",
-          description: "Redirecting to login...",
-        });
+      setTimeout(() => navigate("/login"), 1500);
 
-        setTimeout(() => navigate("/login"), 1500);
-      }
-    } catch {
-      toast({ title: "Error", description: "Verification failed", variant: "destructive" });
+    } catch (err) {
+      const msg =
+        err instanceof ApiError ? err.message : "Invalid or expired OTP";
+      toast({ title: "Error", description: msg, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -139,180 +149,117 @@ const Register = () => {
   /* ---------------- UI ---------------- */
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center px-4 py-10">
+    <div className="flex min-h-screen items-center justify-center p-6">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="w-full max-w-md"
+      >
+        <Link to="/" className="mb-8 flex items-center gap-2">
+          <Heart className="h-7 w-7 text-primary fill-primary" />
+          <span className="font-display text-xl font-bold">
+            Vivah<span className="text-primary">Bandhan</span>
+          </span>
+        </Link>
 
-      {/* Background Image */}
-      <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{
-          backgroundImage: "url('/hero-4.png')",
-        }}
-      />
+        {/* Step Indicator */}
+        <div className="mb-6 flex gap-2">
+          {[1, 2, 3].map((s) => (
+            <div
+              key={s}
+              className={`h-1.5 flex-1 rounded-full ${
+                s <= step ? "bg-primary" : "bg-muted"
+              }`}
+            />
+          ))}
+        </div>
 
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+        <h2 className="mb-6 text-center text-xl font-semibold">
+          {step === 1 && "Create Account"}
+          {step === 2 && "Basic Details"}
+          {step === 3 && "Verify Email OTP"}
+        </h2>
 
-      {/* Content */}
-      <div className="relative z-10 w-full max-w-md">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="w-full bg-white/90 backdrop-blur-lg rounded-2xl shadow-2xl p-8 sm:p-10 border border-white/20"
-        >
+          {/* STEP 1 */}
+          {step === 1 && (
+            <>
+              <Input placeholder="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+              <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Input type="tel" placeholder="Mobile (10-digit)" value={mobile} onChange={(e) => setMobile(e.target.value)} />
 
-          {/* Logo */}
-          <Link to="/" className="mb-8 flex items-center gap-2 justify-center">
-            <Heart className="h-7 w-7 text-primary fill-primary" />
-            <span className="font-display text-xl font-bold">
-              Vivah<span className="text-primary">Bandhan</span>
-            </span>
-          </Link>
-
-          {/* Step Indicator */}
-          <div className="mb-6 flex gap-2">
-            {[1, 2, 3].map((s) => (
-              <div
-                key={s}
-                className={`h-1.5 flex-1 rounded-full ${
-                  s <= step ? "bg-primary" : "bg-muted"
-                }`}
-              />
-            ))}
-          </div>
-
-          <h2 className="mb-6 text-center text-xl font-semibold">
-            {step === 1 && "Create Account"}
-            {step === 2 && "Basic Details"}
-            {step === 3 && "Verify Email OTP"}
-          </h2>
-
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-
-            {/* STEP 1 */}
-            {step === 1 && (
-              <>
+              <div className="relative">
                 <Input
-                  placeholder="Full Name"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  disabled={loading}
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Password (min 8 characters)"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                 />
-                <Input
-                  type="email"
-                  placeholder="Email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
-                />
-                <Input
-                  type="tel"
-                  placeholder="Mobile (10-digit)"
-                  value={mobile}
-                  onChange={(e) => setMobile(e.target.value)}
-                  disabled={loading}
-                />
-                <div className="relative">
-                  <Input
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Password (min 8 characters)"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={loading}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2"
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </>
-            )}
-
-            {/* STEP 2 */}
-            {step === 2 && (
-              <>
-                <Select value={gender} onValueChange={setGender}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Gender" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="male">Male</SelectItem>
-                    <SelectItem value="female">Female</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Input
-                  type="date"
-                  value={dob}
-                  onChange={(e) => setDob(e.target.value)}
-                  disabled={loading}
-                />
-                <Input
-                  placeholder="Religion"
-                  value={religion}
-                  onChange={(e) => setReligion(e.target.value)}
-                  disabled={loading}
-                />
-                <Input
-                  placeholder="Location"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  disabled={loading}
-                />
-              </>
-            )}
-
-            {/* STEP 3 */}
-            {step === 3 && (
-              <>
-                <Input
-                  placeholder="Enter 6-digit Email OTP"
-                  maxLength={6}
-                  value={emailOtp}
-                  onChange={(e) =>
-                    setEmailOtp(e.target.value.replace(/\D/g, ""))
-                  }
-                  disabled={emailVerified || loading}
-                />
-                <Button
+                <button
                   type="button"
-                  onClick={handleVerifyOTP}
-                  disabled={emailVerified || loading}
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2"
                 >
-                  {emailVerified ? "✓ Email Verified" : "Verify Email"}
-                </Button>
-              </>
-            )}
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </>
+          )}
 
-            {step <= 2 && (
-              <Button type="submit" disabled={loading}>
-                {loading
-                  ? "Processing..."
-                  : step === 1
-                  ? "Continue"
-                  : "Create Profile"}{" "}
-                {!loading && <ArrowRight size={16} />}
+          {/* STEP 2 */}
+          {step === 2 && (
+            <>
+              <Select value={gender} onValueChange={setGender}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Gender" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="male">Male</SelectItem>
+                  <SelectItem value="female">Female</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Input type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
+              <Input placeholder="Religion" value={religion} onChange={(e) => setReligion(e.target.value)} />
+              <Input placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} />
+            </>
+          )}
+
+          {/* STEP 3 */}
+          {step === 3 && (
+            <>
+              <Input
+                placeholder="Enter 6-digit Email OTP"
+                maxLength={6}
+                value={emailOtp}
+                onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, ""))}
+              />
+
+              <Button type="button" onClick={handleVerifyOTP} disabled={loading}>
+                {loading ? "Verifying..." : "Verify & Create Account"}
               </Button>
-            )}
+            </>
+          )}
 
-            {step > 1 && step <= 2 && (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setStep(step - 1)}
-                disabled={loading}
-              >
-                Go Back
-              </Button>
-            )}
+          {step <= 2 && (
+            <Button type="submit" disabled={loading}>
+              {loading
+                ? "Processing..."
+                : step === 1
+                ? "Continue"
+                : "Send OTP"}
+              {!loading && <ArrowRight size={16} />}
+            </Button>
+          )}
 
-          </form>
-        </motion.div>
-      </div>
+          {step > 1 && step < 3 && (
+            <Button type="button" variant="ghost" onClick={() => setStep(step - 1)}>
+              Go Back
+            </Button>
+          )}
+        </form>
+      </motion.div>
     </div>
   );
 };

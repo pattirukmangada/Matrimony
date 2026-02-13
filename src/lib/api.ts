@@ -128,6 +128,26 @@ export const AuthAPI = {
       body: JSON.stringify(payload),
     }),
 
+  registerInit: (payload: RegisterPayload) =>
+    request("/auth/register-init.php", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+      verifyOTP: (payload: {
+    identifier: string;
+    type: "email" | "mobile";
+    otp: string;
+  }) =>
+    request<{ success: boolean }>(
+      "/auth/verify-otp.php",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }
+    ),
+
+
   login: async (payload: LoginPayload) => {
     const res = await request<{
       token: string;

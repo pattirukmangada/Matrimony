@@ -6,17 +6,19 @@ class OTPService
 {
     private static $otpExpiry = 600; // 10 minutes
 
-    /**
-     * Generate 6-digit OTP
-     */
+    /* =========================================================
+       OTP GENERATION
+    ========================================================= */
+
     public static function generateOTP(): string
     {
         return str_pad(random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
     }
 
-    /**
-     * Store OTP with rate limiting
-     */
+    /* =========================================================
+       STORE OTP (With Rate Limit)
+    ========================================================= */
+
     public static function storeOTP(PDO $db, string $identifier, string $type, string $otp): bool
     {
         // Rate limit: 5 per hour
@@ -66,9 +68,10 @@ class OTPService
         ]);
     }
 
-    /**
-     * Send Email OTP
-     */
+    /* =========================================================
+       EMAIL OTP
+    ========================================================= */
+
     public static function sendEmailOTP(string $email, string $otp): bool
     {
         try {
@@ -97,19 +100,10 @@ class OTPService
         }
     }
 
-    /**
-     * Send SMS OTP (Dummy version — safe for now)
-     */
-    public static function sendSMSOTP(string $mobile, string $otp): bool
-    {
-        // For now just log it
-        error_log("SMS OTP for {$mobile}: {$otp}");
-        return true;
-    }
+    /* =========================================================
+       VERIFY OTP
+    ========================================================= */
 
-    /**
-     * Verify OTP
-     */
     public static function verifyOTP(PDO $db, string $identifier, string $type, string $otp): bool
     {
         $stmt = $db->prepare("
@@ -138,5 +132,52 @@ class OTPService
         $stmt->execute(['id' => $row['id']]);
 
         return true;
+    }
+
+    /* =========================================================
+       TEMP REGISTRATION STORAGE (NEW)
+    ========================================================= */
+
+    public static function storeTempRegistration(PDO $db, string $email, array $data): void
+    {
+        $stmt = $db->prepare("
+            INSERT INTO temp_registrations (email, data)
+            VALUES (:email, :data)
+            ON DUPLICATE KEY UPDATE data = :data
+        ");
+
+        $stmt->execute([
+            'email' => $email,
+            'data'  => json_encode($data)
+        ]);
+    }
+
+    public static function getTempRegistration(PDO $db, string $email): array|false
+    {
+        $stmt = $db->prepare("
+            SELECT data FROM temp_registrations
+            WHERE email = :email
+            LIMIT 1
+        ");
+
+        $stmt->execute(['email' => $email]);
+
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row) {
+            return false;
+        }
+
+        return json_decode($row['data'], true);
+    }
+
+    public static function deleteTempRegistration(PDO $db, string $email): void
+    {
+        $stmt = $db->prepare("
+            DELETE FROM temp_registrations
+            WHERE email = :email
+        ");
+
+        $stmt->execute(['email' => $email]);
     }
 }
