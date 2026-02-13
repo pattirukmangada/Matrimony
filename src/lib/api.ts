@@ -50,6 +50,10 @@ export interface RegisterPayload {
   email: string;
   mobile: string;
   password: string;
+  gender: string;
+  dob: string;
+  religion: string;
+  location: string;
 }
 export interface LoginPayload {
   email: string;
