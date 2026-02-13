@@ -1,7 +1,4 @@
 <?php
-/**
- * POST /api/auth/verify-otp.php
- */
 
 require_once __DIR__ . '/../../config/cors.php';
 require_once __DIR__ . '/../../config/database.php';
@@ -41,9 +38,37 @@ try {
     $column = $type === 'email' ? 'email_verified' : 'mobile_verified';
     $field  = $type === 'email' ? 'email' : 'mobile';
 
+    // Mark verified
     $stmt = $db->prepare("UPDATE users SET {$column} = 1 WHERE {$field} = :identifier");
     $stmt->execute(['identifier' => $identifier]);
 
+    /*
+    🔥 NEW LOGIC:
+    If email verified → remove any unused SMS OTP
+    */
+    if ($type === 'email') {
+
+        // Get user mobile
+        $stmt = $db->prepare("SELECT mobile FROM users WHERE email = :identifier");
+        $stmt->execute(['identifier' => $identifier]);
+        $userData = $stmt->fetch();
+
+        if ($userData && !empty($userData['mobile'])) {
+
+            // Invalidate all unused SMS OTPs
+            $stmt = $db->prepare("
+                UPDATE otp_logs
+                SET is_used = 1
+                WHERE identifier = :mobile
+                AND type = 'sms'
+                AND is_used = 0
+            ");
+
+            $stmt->execute(['mobile' => $userData['mobile']]);
+        }
+    }
+
+    // Fetch updated status
     $stmt = $db->prepare("
         SELECT id, email_verified, mobile_verified 
         FROM users 
