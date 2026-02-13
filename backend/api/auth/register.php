@@ -2,15 +2,14 @@
 /**
  * POST /api/auth/register.php
  * 
- * Register a new user and send OTP to email + mobile.
- * Profile is NOT visible until admin approves it.
- * 
- * Body: { full_name, email, mobile, password }
+ * Register new user + send OTP.
+ * Profile is visible only after admin approval.
  */
 
 require_once __DIR__ . '/../../config/cors.php';
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../config/mail.php';
+require_once __DIR__ . '/../../services/OTPService.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -20,17 +19,45 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $input = json_decode(file_get_contents('php://input'), true);
 
-// Validate input
+// ---------------- INPUT FIELDS ----------------
+
 $fullName = trim($input['full_name'] ?? '');
 $email    = trim($input['email'] ?? '');
 $mobile   = trim($input['mobile'] ?? '');
 $password = $input['password'] ?? '';
 
+$gender   = trim($input['gender'] ?? '');
+$dob      = trim($input['dob'] ?? '');
+$religion = trim($input['religion'] ?? '');
+$location = trim($input['location'] ?? '');
+
+// ---------------- VALIDATION ----------------
+
 $errors = [];
-if (empty($fullName) || strlen($fullName) > 100) $errors[] = 'Full name is required (max 100 chars)';
-if (!filter_var($email, FILTER_VALIDATE_EMAIL))   $errors[] = 'Valid email is required';
-if (!preg_match('/^[6-9]\d{9}$/', $mobile))       $errors[] = 'Valid 10-digit Indian mobile number required';
-if (strlen($password) < 8)                         $errors[] = 'Password must be at least 8 characters';
+
+if (empty($fullName) || strlen($fullName) > 100)
+    $errors[] = 'Full name is required (max 100 chars)';
+
+if (!filter_var($email, FILTER_VALIDATE_EMAIL))
+    $errors[] = 'Valid email is required';
+
+if (!preg_match('/^[6-9]\d{9}$/', $mobile))
+    $errors[] = 'Valid 10-digit Indian mobile number required';
+
+if (strlen($password) < 8)
+    $errors[] = 'Password must be at least 8 characters';
+
+if (empty($gender))
+    $errors[] = 'Gender is required';
+
+if (empty($dob))
+    $errors[] = 'Date of birth is required';
+
+if (empty($religion))
+    $errors[] = 'Religion is required';
+
+if (empty($location))
+    $errors[] = 'Location is required';
 
 if (!empty($errors)) {
     http_response_code(422);
@@ -38,9 +65,11 @@ if (!empty($errors)) {
     exit;
 }
 
+// ---------------- DATABASE ----------------
+
 $db = (new Database())->getConnection();
 
-// Check if email or mobile already exists
+// Check duplicate
 $stmt = $db->prepare("SELECT id FROM users WHERE email = :email OR mobile = :mobile LIMIT 1");
 $stmt->execute(['email' => $email, 'mobile' => $mobile]);
 if ($stmt->fetch()) {
@@ -52,50 +81,76 @@ if ($stmt->fetch()) {
 // Hash password
 $passwordHash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
 
-// Insert user
-$stmt = $db->prepare("
-    INSERT INTO users (full_name, email, mobile, password_hash, status)
-    VALUES (:full_name, :email, :mobile, :password_hash, 'pending')
-");
-$stmt->execute([
-    'full_name'     => htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8'),
-    'email'         => $email,
-    'mobile'        => $mobile,
-    'password_hash' => $passwordHash,
-]);
-$userId = (int)$db->lastInsertId();
+try {
+    $db->beginTransaction();
 
-// Create default privacy settings
-$stmt = $db->prepare("INSERT INTO privacy_settings (user_id) VALUES (:user_id)");
-$stmt->execute(['user_id' => $userId]);
+    // Insert user
+    $stmt = $db->prepare("
+        INSERT INTO users 
+        (full_name, email, mobile, gender, dob, religion, location, password_hash, status)
+        VALUES 
+        (:full_name, :email, :mobile, :gender, :dob, :religion, :location, :password_hash, 'pending')
+    ");
 
-// Create verification record
-$stmt = $db->prepare("INSERT INTO profile_verifications (user_id) VALUES (:user_id)");
-$stmt->execute(['user_id' => $userId]);
+    $stmt->execute([
+        'full_name'     => htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8'),
+        'email'         => $email,
+        'mobile'        => $mobile,
+        'gender'        => $gender,
+        'dob'           => $dob,
+        'religion'      => $religion,
+        'location'      => $location,
+        'password_hash' => $passwordHash,
+    ]);
 
-// Generate and send OTPs
-$emailOtp  = OTPService::generateOTP();
-$mobileOtp = OTPService::generateOTP();
+    $userId = (int)$db->lastInsertId();
 
-OTPService::storeOTP($db, $email, 'email', $emailOtp);
-OTPService::storeOTP($db, $mobile, 'sms', $mobileOtp);
+    // Privacy settings
+    $stmt = $db->prepare("INSERT INTO privacy_settings (user_id) VALUES (:user_id)");
+    $stmt->execute(['user_id' => $userId]);
 
-OTPService::sendEmailOTP($email, $emailOtp);
-OTPService::sendSMSOTP($mobile, $mobileOtp);
+    // Verification record
+    $stmt = $db->prepare("INSERT INTO profile_verifications (user_id) VALUES (:user_id)");
+    $stmt->execute(['user_id' => $userId]);
 
-// Notify admin of new registration
-$stmt = $db->prepare("
-    INSERT INTO admin_notifications (type, reference_id, user_id, message)
-    VALUES ('registration', :ref_id, :user_id, :message)
-");
-$stmt->execute([
-    'ref_id'  => $userId,
-    'user_id' => $userId,
-    'message' => "New registration: {$fullName} ({$email}) — awaiting approval.",
-]);
+    // ---------------- OTP ----------------
 
-echo json_encode([
-    'success' => true,
-    'message' => 'Registration successful. OTP sent to email and mobile. Your profile will be visible after admin approval.',
-    'user_id' => $userId,
-]);
+    $emailOtp  = OTPService::generateOTP();
+    $mobileOtp = OTPService::generateOTP();
+
+    OTPService::storeOTP($db, $email, 'email', $emailOtp);
+    OTPService::storeOTP($db, $mobile, 'sms', $mobileOtp);
+
+    OTPService::sendEmailOTP($email, $emailOtp);
+    OTPService::sendSMSOTP($mobile, $mobileOtp);
+
+    // ---------------- ADMIN NOTIFICATION ----------------
+
+    $stmt = $db->prepare("
+        INSERT INTO admin_notifications (type, reference_id, user_id, message)
+        VALUES ('registration', :ref_id, :user_id, :message)
+    ");
+
+    $stmt->execute([
+        'ref_id'  => $userId,
+        'user_id' => $userId,
+        'message' => "New registration: {$fullName} ({$email}) — awaiting approval.",
+    ]);
+
+    $db->commit();
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'Registration successful. OTP sent.',
+        'user_id' => $userId,
+    ]);
+
+} catch (Exception $e) {
+
+    $db->rollBack();
+
+    http_response_code(500);
+    echo json_encode([
+        'error' => 'Registration failed. Please try again.'
+    ]);
+}
