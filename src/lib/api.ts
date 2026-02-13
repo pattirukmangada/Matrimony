@@ -7,10 +7,10 @@
  * 
  * Configuration:
  *   Set VITE_API_BASE_URL in your .env file:
- *   VITE_API_BASE_URL=http://localhost/vivahbandhan/backend/api
+ *   VITE_API_BASE_URL=https://matrimony.rukmantech.com/backend/api
  */
 // ─── Config ───────────────────────────────────────────────────
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost/vivahbandhan/backend/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://matrimony.rukmantech.com/backend/api';
 // ─── Token Management ─────────────────────────────────────────
 const TOKEN_KEY = 'vb_token';
 const USER_KEY = 'vb_user';
