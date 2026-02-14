@@ -1,10 +1,4 @@
 <?php
-/**
- * POST /api/auth/register-init.php
- * Step 1: Validate user data
- * Step 2: Generate & send Email OTP
- * Step 3: Store temporary registration data
- */
 
 require_once __DIR__ . '/../../config/cors.php';
 require_once __DIR__ . '/../../config/database.php';
@@ -19,7 +13,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$input = json_decode(file_get_contents('php://input'), true);
+/* ---------------- SAFE JSON PARSE ---------------- */
+
+$rawInput = file_get_contents('php://input');
+$input = json_decode($rawInput, true);
+
+if (!$input) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid request body']);
+    exit;
+}
 
 /* ---------------- VALIDATION ---------------- */
 
@@ -33,14 +36,14 @@ $religion = trim($input['religion'] ?? '');
 $location = trim($input['location'] ?? '');
 
 if (
-    empty($fullName) ||
-    empty($email) ||
-    empty($mobile) ||
-    empty($password) ||
-    empty($gender) ||
-    empty($dob) ||
-    empty($religion) ||
-    empty($location)
+    !$fullName ||
+    !$email ||
+    !$mobile ||
+    !$password ||
+    !$gender ||
+    !$dob ||
+    !$religion ||
+    !$location
 ) {
     http_response_code(422);
     echo json_encode(['error' => 'All fields are required']);
@@ -71,7 +74,7 @@ try {
 
     $db = (new Database())->getConnection();
 
-    /* ---- Check duplicate user ---- */
+    /* ---- Duplicate check ---- */
 
     $stmt = $db->prepare("
         SELECT id 
@@ -93,17 +96,24 @@ try {
 
     /* ---- Generate OTP ---- */
 
-    $emailOtp = OTPService::generateOTP();
-
-    OTPService::storeOTP($db, $email, 'email', $emailOtp);
-
-    if (!OTPService::sendEmailOTP($email, $emailOtp)) {
-        http_response_code(500);
-        echo json_encode(['error' => 'Failed to send OTP']);
+    try {
+        $emailOtp = OTPService::generateOTP();
+        OTPService::storeOTP($db, $email, 'email', $emailOtp);
+    } catch (Throwable $e) {
+        http_response_code(429);
+        echo json_encode(['error' => $e->getMessage()]);
         exit;
     }
 
-    /* ---- Store temporary registration ---- */
+    /* ---- Send OTP ---- */
+
+    if (!OTPService::sendEmailOTP($email, $emailOtp)) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Email service unavailable']);
+        exit;
+    }
+
+    /* ---- Store temp registration ---- */
 
     OTPService::storeTempRegistration($db, $email, [
         'full_name'     => $fullName,
@@ -118,13 +128,15 @@ try {
 
     echo json_encode([
         'success' => true,
-        'message' => 'OTP sent to email'
+        'message' => 'OTP sent successfully'
     ]);
 
 } catch (Throwable $e) {
 
-    error_log("Register Init Error: " . $e->getMessage());
+    error_log("Register Init Fatal Error: " . $e->getMessage());
 
     http_response_code(500);
-    echo json_encode(['error' => 'Registration failed']);
+    echo json_encode([
+        'error' => 'Registration failed'
+    ]);
 }
