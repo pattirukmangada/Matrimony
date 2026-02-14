@@ -121,6 +121,28 @@ export interface LoginPayload {
   password: string;
 }
 
+export const AdminAPI = {
+  async login(data: { email: string; password: string }) {
+    const res = await fetch(`${API_BASE}/admin/login.php`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+
+    const json = await res.json();
+
+    if (!res.ok) {
+      throw new ApiError(json.error || "Admin login failed", res.status);
+    }
+
+    return json;
+  },
+};
+
+
+
 export const AuthAPI = {
   register: (payload: RegisterPayload) =>
     request("/auth/register.php", {
