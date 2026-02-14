@@ -8,22 +8,13 @@ class OTPService
 {
     private static int $otpExpiry = 600;
 
-    /* =========================
-       GENERATE OTP
-    ========================== */
-
     public static function generateOTP(): string
     {
         return (string) random_int(100000, 999999);
     }
 
-    /* =========================
-       STORE OTP
-    ========================== */
-
-    public static function storeOTP(PDO $db, string $identifier, string $type, string $otp): bool
+    public static function storeOTP(PDO $db, string $identifier, string $type, string $otp): void
     {
-        // Rate limit
         $stmt = $db->prepare("
             SELECT COUNT(*) as cnt
             FROM otp_logs
@@ -37,13 +28,13 @@ class OTPService
             'type'       => $type
         ]);
 
-        $count = (int) ($stmt->fetch()['cnt'] ?? 0);
+        $count = (int)($stmt->fetch()['cnt'] ?? 0);
 
         if ($count >= 5) {
-            throw new Exception("Too many OTP requests. Try again later.");
+            throw new Exception("Too many OTP requests. Try later.");
         }
 
-        // Invalidate old unused OTP
+        // Invalidate old OTP
         $stmt = $db->prepare("
             UPDATE otp_logs
             SET is_used = 1
@@ -67,7 +58,7 @@ class OTPService
             (:identifier, :type, :otp_hash, :expires_at)
         ");
 
-        return $stmt->execute([
+        $stmt->execute([
             'identifier' => $identifier,
             'type'       => $type,
             'otp_hash'   => $hashedOtp,
@@ -75,54 +66,27 @@ class OTPService
         ]);
     }
 
-    /* =========================
-       DELETE OTP
-    ========================== */
-
-    public static function deleteOTP(PDO $db, string $identifier, string $type): void
-    {
-        $stmt = $db->prepare("
-            DELETE FROM otp_logs
-            WHERE identifier = :identifier
-            AND type = :type
-        ");
-
-        $stmt->execute([
-            'identifier' => $identifier,
-            'type'       => $type
-        ]);
-    }
-
-    /* =========================
-       SEND EMAIL OTP
-    ========================== */
-
-    public static function sendEmailOTP(string $email, string $otp): bool
+    public static function sendEmailOTP(string $email, string $otp): void
     {
         try {
             $mail = getMailer();
             $mail->addAddress($email);
-            $mail->Subject = 'VivahBandhan - OTP Verification';
-            $mail->isHTML(true);
+            $mail->Subject = 'VivahBandhan - Email Verification OTP';
 
             $mail->Body = "
                 <h2 style='color:#DC143C;'>VivahBandhan</h2>
-                <p>Your OTP is:</p>
+                <p>Your verification OTP is:</p>
                 <h1 style='letter-spacing:8px;text-align:center;'>{$otp}</h1>
-                <p>Expires in 10 minutes.</p>
+                <p>This OTP expires in 10 minutes.</p>
             ";
 
-            return $mail->send();
+            $mail->send();
 
         } catch (Throwable $e) {
-            error_log("Email send error: " . $e->getMessage());
-            return false;
+            error_log("Email Send Error: " . $e->getMessage());
+            throw new Exception("Failed to send OTP email.");
         }
     }
-
-    /* =========================
-       VERIFY OTP
-    ========================== */
 
     public static function verifyOTP(PDO $db, string $identifier, string $type, string $otp): bool
     {
@@ -142,7 +106,7 @@ class OTPService
             'type'       => $type
         ]);
 
-        $row = $stmt->fetch();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$row || !password_verify($otp, $row['otp_hash'])) {
             return false;
@@ -158,10 +122,6 @@ class OTPService
 
         return true;
     }
-
-    /* =========================
-       TEMP REGISTRATION
-    ========================== */
 
     public static function storeTempRegistration(PDO $db, string $email, array $data): void
     {
@@ -180,10 +140,7 @@ class OTPService
     public static function getTempRegistration(PDO $db, string $email): array|false
     {
         $stmt = $db->prepare("
-            SELECT data
-            FROM temp_registrations
-            WHERE email = :email
-            LIMIT 1
+            SELECT data FROM temp_registrations WHERE email = :email LIMIT 1
         ");
 
         $stmt->execute(['email' => $email]);
@@ -196,8 +153,7 @@ class OTPService
     public static function deleteTempRegistration(PDO $db, string $email): void
     {
         $stmt = $db->prepare("
-            DELETE FROM temp_registrations
-            WHERE email = :email
+            DELETE FROM temp_registrations WHERE email = :email
         ");
 
         $stmt->execute(['email' => $email]);

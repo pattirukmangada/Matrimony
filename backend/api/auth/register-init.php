@@ -20,26 +20,10 @@ if (!is_array($input)) {
     exit;
 }
 
-$fullName = trim($input['full_name'] ?? '');
-$email    = trim($input['email'] ?? '');
-$mobile   = trim($input['mobile'] ?? '');
-$password = $input['password'] ?? '';
-$gender   = trim($input['gender'] ?? '');
-$dob      = trim($input['dob'] ?? '');
-$religion = trim($input['religion'] ?? '');
-$location = trim($input['location'] ?? '');
-
-if (!$fullName || !$email || !$mobile || !$password || !$gender || !$dob || !$religion || !$location) {
-    http_response_code(422);
-    echo json_encode(['error' => 'All fields required']);
-    exit;
-}
-
 try {
 
     $db = (new Database())->getConnection();
 
-    // Duplicate check
     $stmt = $db->prepare("
         SELECT id FROM users
         WHERE email = :email OR mobile = :mobile
@@ -47,8 +31,8 @@ try {
     ");
 
     $stmt->execute([
-        'email'  => $email,
-        'mobile' => $mobile
+        'email'  => $input['email'],
+        'mobile' => $input['mobile']
     ]);
 
     if ($stmt->fetch()) {
@@ -57,39 +41,29 @@ try {
         exit;
     }
 
-    // Generate + store OTP
-    $emailOtp = OTPService::generateOTP();
-    OTPService::storeOTP($db, $email, 'email', $emailOtp);
+    $otp = OTPService::generateOTP();
 
-    // Send email
-    if (!OTPService::sendEmailOTP($email, $emailOtp)) {
-        http_response_code(500);
-        echo json_encode(['error' => 'Mail sending failed']);
-        exit;
-    }
+    OTPService::storeOTP($db, $input['email'], 'email', $otp);
 
-    // Store temp registration
-    OTPService::storeTempRegistration($db, $email, [
-        'full_name'     => $fullName,
-        'email'         => $email,
-        'mobile'        => $mobile,
-        'password_hash' => password_hash($password, PASSWORD_BCRYPT),
-        'gender'        => $gender,
-        'dob'           => $dob,
-        'religion'      => $religion,
-        'location'      => $location,
+    OTPService::sendEmailOTP($input['email'], $otp);
+
+    OTPService::storeTempRegistration($db, $input['email'], [
+        'full_name'     => $input['full_name'],
+        'email'         => $input['email'],
+        'mobile'        => $input['mobile'],
+        'gender'        => $input['gender'],
+        'dob'           => $input['dob'],
+        'religion'      => $input['religion'],
+        'location'      => $input['location'],
+        'password_hash' => password_hash($input['password'], PASSWORD_BCRYPT)
     ]);
 
-    echo json_encode([
-        'success' => true,
-        'message' => 'OTP sent successfully'
-    ]);
+    echo json_encode(['success' => true]);
 
 } catch (Throwable $e) {
 
+    error_log("Register Init Error: " . $e->getMessage());
+
     http_response_code(500);
-    echo json_encode([
-        'error' => 'Server error',
-        'debug' => $e->getMessage()
-    ]);
+    echo json_encode(['error' => 'Registration failed']);
 }

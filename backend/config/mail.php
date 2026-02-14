@@ -1,8 +1,4 @@
 <?php
-/**
- * VivahBandhan - Mail Configuration (Hostinger Production Safe)
- */
-
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
@@ -12,25 +8,24 @@ function getMailer(): PHPMailer
 {
     $mail = new PHPMailer(true);
 
-    // SMTP
+    // SMTP Configuration
     $mail->isSMTP();
     $mail->Host       = 'smtp.hostinger.com';
     $mail->SMTPAuth   = true;
 
-    // 🔴 CHANGE THIS PASSWORD IN HOSTINGER FIRST
+    // ⚠️ MOVE THESE TO ENV IN PRODUCTION
     $mail->Username   = 'rukmanwebsolutions@matrimony.rukmantech.com';
     $mail->Password   = 'Rukman@143';
 
-    // ✅ USE TLS 587 (More stable on Hostinger)
+    // ✅ CORRECT COMBINATION FOR HOSTINGER
     $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-    $mail->Port       = 465;
+    $mail->Port       = 587;
 
-    // Prevent long hanging
-    $mail->Timeout    = 10;
+    $mail->Timeout = 15;
 
     $mail->setFrom(
         'rukmanwebsolutions@matrimony.rukmantech.com',
-        'Rukman Matrimony'
+        'VivahBandhan'
     );
 
     $mail->isHTML(true);
