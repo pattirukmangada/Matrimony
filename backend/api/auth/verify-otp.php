@@ -29,6 +29,8 @@ if (
     exit;
 }
 
+$db = null;
+
 try {
 
     $db = (new Database())->getConnection();
@@ -70,12 +72,15 @@ try {
 
 } catch (Throwable $e) {
 
-    if ($db->inTransaction()) {
+    if ($db && $db->inTransaction()) {
         $db->rollBack();
     }
 
-    error_log("Verify OTP Error: " . $e->getMessage());
+    error_log("Verify OTP Fatal: " . $e->getMessage());
 
     http_response_code(500);
-    echo json_encode(['error' => 'Verification failed']);
+    echo json_encode([
+        'error' => 'Verification failed',
+        'debug' => $e->getMessage()
+    ]);
 }
