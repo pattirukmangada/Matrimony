@@ -1,8 +1,4 @@
 <?php
-/**
- * POST /api/auth/verify-otp.php
- * Email OTP verification only.
- */
 
 require_once __DIR__ . '/../../config/cors.php';
 require_once __DIR__ . '/../../config/database.php';
@@ -22,8 +18,6 @@ $email = trim($input['identifier'] ?? '');
 $type  = trim($input['type'] ?? '');
 $otp   = trim($input['otp'] ?? '');
 
-/* ---------------- VALIDATION ---------------- */
-
 if (
     empty($email) ||
     $type !== 'email' ||
@@ -39,37 +33,48 @@ try {
 
     $db = (new Database())->getConnection();
 
-    // Verify OTP
     if (!OTPService::verifyOTP($db, $email, 'email', $otp)) {
         http_response_code(400);
         echo json_encode(['error' => 'Invalid or expired OTP']);
         exit;
     }
 
-    // Mark email verified
-    $stmt = $db->prepare("
-        UPDATE users 
-        SET email_verified = 1 
-        WHERE email = :email
-    ");
-    $stmt->execute(['email' => $email]);
+    $tempData = OTPService::getTempRegistration($db, $email);
 
-    // Activate account
+    if (!$tempData) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Registration expired']);
+        exit;
+    }
+
+    $db->beginTransaction();
+
     $stmt = $db->prepare("
-        UPDATE users 
-        SET is_active = 1 
-        WHERE email = :email
+        INSERT INTO users
+        (full_name, email, mobile, gender, dob, religion, location, password_hash, status, email_verified, is_active)
+        VALUES
+        (:full_name, :email, :mobile, :gender, :dob, :religion, :location, :password_hash, 'pending', 1, 1)
     ");
-    $stmt->execute(['email' => $email]);
+
+    $stmt->execute($tempData);
+
+    OTPService::deleteTempRegistration($db, $email);
+    OTPService::deleteOTP($db, $email, 'email');
+
+    $db->commit();
 
     echo json_encode([
         'success' => true,
-        'message' => 'Email verified successfully.'
+        'message' => 'Account created successfully'
     ]);
 
 } catch (Throwable $e) {
 
-    error_log("OTP Verify Error: " . $e->getMessage());
+    if ($db->inTransaction()) {
+        $db->rollBack();
+    }
+
+    error_log("Verify OTP Error: " . $e->getMessage());
 
     http_response_code(500);
     echo json_encode(['error' => 'Verification failed']);

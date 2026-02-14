@@ -69,6 +69,24 @@ class OTPService
     }
 
     /* =========================================================
+       DELETE OTP (FIX FOR 500 ERROR)
+    ========================================================= */
+
+    public static function deleteOTP(PDO $db, string $identifier, string $type): void
+    {
+        $stmt = $db->prepare("
+            DELETE FROM otp_logs
+            WHERE identifier = :identifier
+            AND type = :type
+        ");
+
+        $stmt->execute([
+            'identifier' => $identifier,
+            'type'       => $type
+        ]);
+    }
+
+    /* =========================================================
        EMAIL OTP
     ========================================================= */
 
@@ -76,9 +94,9 @@ class OTPService
     {
         try {
             $mail = getMailer();
-
             $mail->addAddress($email);
             $mail->Subject = 'VivahBandhan - OTP Verification';
+            $mail->isHTML(true);
 
             $mail->Body = "
                 <div style='font-family:Arial,sans-serif;max-width:400px;margin:auto;padding:20px;'>
@@ -127,7 +145,6 @@ class OTPService
             return false;
         }
 
-        // Mark as used
         $stmt = $db->prepare("UPDATE otp_logs SET is_used = 1 WHERE id = :id");
         $stmt->execute(['id' => $row['id']]);
 
@@ -135,7 +152,7 @@ class OTPService
     }
 
     /* =========================================================
-       TEMP REGISTRATION STORAGE (NEW)
+       TEMP REGISTRATION STORAGE
     ========================================================= */
 
     public static function storeTempRegistration(PDO $db, string $email, array $data): void
