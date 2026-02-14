@@ -13,11 +13,9 @@ function getMailer(): PHPMailer
     $mail->Host       = 'smtp.hostinger.com';
     $mail->SMTPAuth   = true;
 
-    // ⚠️ MOVE THESE TO ENV IN PRODUCTION
     $mail->Username   = 'rukmanwebsolutions@matrimony.rukmantech.com';
-    $mail->Password   = 'Rukman@143';
+    $mail->Password   = 'Rukman@143';   // ⚠ move to ENV later
 
-    // ✅ CORRECT COMBINATION FOR HOSTINGER
     $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
     $mail->Port       = 587;
 
