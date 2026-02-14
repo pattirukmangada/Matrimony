@@ -17,7 +17,7 @@ import NotFound from "./pages/NotFound";
 
 // ✅ Admin Imports
 import AdminLogin from "./pages/admin/AdminLogin";
-import AdminDashboard from "./pages/AdminDashboard";
+// import AdminDashboard from "./pages/AdminDashboard";
 import AdminRoute from "./components/AdminRoute";
 
 const queryClient = new QueryClient();
@@ -46,15 +46,7 @@ const App = () => (
           {/* Public Admin Login */}
           <Route path="/admin/login" element={<AdminLogin />} />
 
-          {/* Protected Admin Dashboard */}
-          <Route
-            path="/admin/dashboard"
-            element={
-              <AdminRoute>
-                <AdminDashboard />
-              </AdminRoute>
-            }
-          />
+
 
           {/* ================= 404 ================= */}
           <Route path="*" element={<NotFound />} />
