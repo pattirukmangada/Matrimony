@@ -6,15 +6,22 @@ use PHPMailer\PHPMailer\Exception;
 
 class OTPService
 {
-    private static int $otpExpiry = 600;
+    private static int $otpExpiry = 600; // 10 minutes
 
+    /* ==============================
+       Generate OTP
+    ============================== */
     public static function generateOTP(): string
     {
         return (string) random_int(100000, 999999);
     }
 
+    /* ==============================
+       Store OTP
+    ============================== */
     public static function storeOTP(PDO $db, string $identifier, string $type, string $otp): void
     {
+        // Rate limit (max 5 per hour)
         $stmt = $db->prepare("
             SELECT COUNT(*) as cnt
             FROM otp_logs
@@ -34,7 +41,7 @@ class OTPService
             throw new Exception("Too many OTP requests. Try later.");
         }
 
-        // Invalidate old OTP
+        // Invalidate old OTPs
         $stmt = $db->prepare("
             UPDATE otp_logs
             SET is_used = 1
@@ -66,6 +73,9 @@ class OTPService
         ]);
     }
 
+    /* ==============================
+       Send Email OTP
+    ============================== */
     public static function sendEmailOTP(string $email, string $otp): void
     {
         try {
@@ -88,6 +98,9 @@ class OTPService
         }
     }
 
+    /* ==============================
+       Verify OTP
+    ============================== */
     public static function verifyOTP(PDO $db, string $identifier, string $type, string $otp): bool
     {
         $stmt = $db->prepare("
@@ -112,6 +125,7 @@ class OTPService
             return false;
         }
 
+        // Mark as used
         $stmt = $db->prepare("
             UPDATE otp_logs
             SET is_used = 1
@@ -123,20 +137,30 @@ class OTPService
         return true;
     }
 
+    /* ==============================
+       Store Temp Registration
+       (FIXED HY093 ERROR HERE)
+    ============================== */
     public static function storeTempRegistration(PDO $db, string $email, array $data): void
     {
         $stmt = $db->prepare("
             INSERT INTO temp_registrations (email, data)
-            VALUES (:email, :data)
-            ON DUPLICATE KEY UPDATE data = :data
+            VALUES (:email, :data_insert)
+            ON DUPLICATE KEY UPDATE data = :data_update
         ");
 
+        $json = json_encode($data);
+
         $stmt->execute([
-            'email' => $email,
-            'data'  => json_encode($data)
+            'email'       => $email,
+            'data_insert' => $json,
+            'data_update' => $json
         ]);
     }
 
+    /* ==============================
+       Get Temp Registration
+    ============================== */
     public static function getTempRegistration(PDO $db, string $email): array|false
     {
         $stmt = $db->prepare("
@@ -150,6 +174,9 @@ class OTPService
         return $row ? json_decode($row['data'], true) : false;
     }
 
+    /* ==============================
+       Delete Temp Registration
+    ============================== */
     public static function deleteTempRegistration(PDO $db, string $email): void
     {
         $stmt = $db->prepare("
