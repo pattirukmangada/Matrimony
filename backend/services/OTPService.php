@@ -1,9 +1,5 @@
 <?php
 
-require_once __DIR__ . '/../config/mail.php';
-
-use PHPMailer\PHPMailer\Exception;
-
 class OTPService
 {
     private static int $otpExpiry = 600; // 10 minutes
@@ -25,9 +21,9 @@ class OTPService
     {
         try {
 
-            // Rate limit: 5 per hour
+            // Rate limit: max 5 per hour
             $stmt = $db->prepare("
-                SELECT COUNT(*) as cnt 
+                SELECT COUNT(*) as cnt
                 FROM otp_logs
                 WHERE identifier = :identifier
                 AND type = :type
@@ -45,7 +41,7 @@ class OTPService
                 throw new Exception("Too many OTP requests. Try again later.");
             }
 
-            // Invalidate old OTPs
+            // Invalidate old unused OTPs
             $stmt = $db->prepare("
                 UPDATE otp_logs
                 SET is_used = 1
@@ -63,17 +59,15 @@ class OTPService
             $expiresAt = date('Y-m-d H:i:s', time() + self::$otpExpiry);
 
             $stmt = $db->prepare("
-                INSERT INTO otp_logs 
-                (identifier, type, otp_hash, expires_at)
-                VALUES 
-                (:identifier, :type, :otp_hash, :expires_at)
+                INSERT INTO otp_logs (identifier, type, otp_hash, expires_at)
+                VALUES (:identifier, :type, :otp_hash, :expires_at)
             ");
 
             return $stmt->execute([
                 'identifier' => $identifier,
                 'type'       => $type,
                 'otp_hash'   => $hashedOtp,
-                'expires_at' => $expiresAt,
+                'expires_at' => $expiresAt
             ]);
 
         } catch (Throwable $e) {
@@ -105,40 +99,29 @@ class OTPService
     }
 
     /* =========================================================
-       SEND EMAIL OTP
+       SEND EMAIL OTP (Using PHP mail() - Hostinger Safe)
     ========================================================= */
 
     public static function sendEmailOTP(string $email, string $otp): bool
     {
-        try {
+        $subject = "VivahBandhan - OTP Verification";
 
-            $mail = getMailer();
+        $message = "
+            <html>
+            <body style='font-family:Arial,sans-serif'>
+                <h2 style='color:#DC143C;'>VivahBandhan</h2>
+                <p>Your OTP verification code is:</p>
+                <h1 style='letter-spacing:8px;text-align:center;'>{$otp}</h1>
+                <p>This code expires in 10 minutes.</p>
+            </body>
+            </html>
+        ";
 
-            $mail->addAddress($email);
-            $mail->Subject = 'VivahBandhan - OTP Verification';
+        $headers  = "MIME-Version: 1.0\r\n";
+        $headers .= "Content-type:text/html;charset=UTF-8\r\n";
+        $headers .= "From: VivahBandhan <rukmanwebsolutions@matrimony.rukmantech.com>\r\n";
 
-            $mail->Body = "
-                <div style='font-family:Arial,sans-serif;max-width:400px;margin:auto;padding:20px;'>
-                    <h2 style='color:#DC143C;'>VivahBandhan</h2>
-                    <p>Your OTP verification code is:</p>
-                    <h1 style='letter-spacing:8px;text-align:center;'>{$otp}</h1>
-                    <p style='font-size:12px;color:#777;'>
-                        This code expires in 10 minutes.
-                    </p>
-                </div>
-            ";
-
-            $mail->send();
-
-            return true;
-
-        } catch (Exception $e) {
-            error_log("Email OTP failed: " . $e->getMessage());
-            return false;
-        } catch (Throwable $e) {
-            error_log("Mailer Fatal Error: " . $e->getMessage());
-            return false;
-        }
+        return mail($email, $subject, $message, $headers);
     }
 
     /* =========================================================
@@ -150,7 +133,7 @@ class OTPService
         try {
 
             $stmt = $db->prepare("
-                SELECT id, otp_hash 
+                SELECT id, otp_hash
                 FROM otp_logs
                 WHERE identifier = :identifier
                 AND type = :type
@@ -171,10 +154,10 @@ class OTPService
                 return false;
             }
 
-            // Mark as used
+            // Mark OTP as used
             $stmt = $db->prepare("
-                UPDATE otp_logs 
-                SET is_used = 1 
+                UPDATE otp_logs
+                SET is_used = 1
                 WHERE id = :id
             ");
 
@@ -189,69 +172,50 @@ class OTPService
     }
 
     /* =========================================================
-       TEMP REGISTRATION
+       TEMP REGISTRATION STORAGE
     ========================================================= */
 
     public static function storeTempRegistration(PDO $db, string $email, array $data): void
     {
-        try {
+        $stmt = $db->prepare("
+            INSERT INTO temp_registrations (email, data)
+            VALUES (:email, :data)
+            ON DUPLICATE KEY UPDATE data = :data
+        ");
 
-            $stmt = $db->prepare("
-                INSERT INTO temp_registrations (email, data)
-                VALUES (:email, :data)
-                ON DUPLICATE KEY UPDATE data = :data
-            ");
-
-            $stmt->execute([
-                'email' => $email,
-                'data'  => json_encode($data)
-            ]);
-
-        } catch (Throwable $e) {
-            error_log("Temp Registration Store Error: " . $e->getMessage());
-            throw $e;
-        }
+        $stmt->execute([
+            'email' => $email,
+            'data'  => json_encode($data)
+        ]);
     }
 
     public static function getTempRegistration(PDO $db, string $email): array|false
     {
-        try {
+        $stmt = $db->prepare("
+            SELECT data
+            FROM temp_registrations
+            WHERE email = :email
+            LIMIT 1
+        ");
 
-            $stmt = $db->prepare("
-                SELECT data 
-                FROM temp_registrations
-                WHERE email = :email
-                LIMIT 1
-            ");
+        $stmt->execute(['email' => $email]);
 
-            $stmt->execute(['email' => $email]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$row) {
-                return false;
-            }
-
-            return json_decode($row['data'], true);
-
-        } catch (Throwable $e) {
-            error_log("Temp Registration Fetch Error: " . $e->getMessage());
+        if (!$row) {
             return false;
         }
+
+        return json_decode($row['data'], true);
     }
 
     public static function deleteTempRegistration(PDO $db, string $email): void
     {
-        try {
-            $stmt = $db->prepare("
-                DELETE FROM temp_registrations
-                WHERE email = :email
-            ");
+        $stmt = $db->prepare("
+            DELETE FROM temp_registrations
+            WHERE email = :email
+        ");
 
-            $stmt->execute(['email' => $email]);
-
-        } catch (Throwable $e) {
-            error_log("Temp Registration Delete Error: " . $e->getMessage());
-        }
+        $stmt->execute(['email' => $email]);
     }
 }
