@@ -13,13 +13,24 @@ function getMailer(): PHPMailer
     $mail->Host       = 'smtp.hostinger.com';
     $mail->SMTPAuth   = true;
 
+    // ⚠️ Move to .env in production
     $mail->Username   = 'rukmanwebsolutions@matrimony.rukmantech.com';
-    $mail->Password   = 'Rukman@143';   // ⚠ move to ENV later
+    $mail->Password   = 'Rukman@143';
 
-    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-    $mail->Port       = 587;
+    // ✅ Hostinger SSL (Port 465)
+    $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+    $mail->Port       = 465;
 
-    $mail->Timeout = 15;
+    $mail->Timeout    = 20;
+
+    // Recommended for shared hosting
+    $mail->SMTPOptions = [
+        'ssl' => [
+            'verify_peer'       => false,
+            'verify_peer_name'  => false,
+            'allow_self_signed' => true,
+        ],
+    ];
 
     $mail->setFrom(
         'rukmanwebsolutions@matrimony.rukmantech.com',
