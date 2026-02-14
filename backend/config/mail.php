@@ -15,7 +15,7 @@ function getMailer(): PHPMailer
 
     // ⚠️ MOVE THESE TO ENV IN PRODUCTION
     $mail->Username   = 'rukmanwebsolutions@matrimony.rukmantech.com';
-    $mail->Password   = 'Rukman@143';
+    $mail->Password   = '';
 
     // ✅ CORRECT COMBINATION FOR HOSTINGER
     $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
