@@ -3,7 +3,7 @@
         'name' => 'vivahbandhan/api',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => 'ad49e8f6fa41fddd1fc8cdec4861d5b1d6e1a44e',
+        'reference' => '384aa7444a6c795cefb439b59d25260d94c19272',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -31,7 +31,7 @@
         'vivahbandhan/api' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => 'ad49e8f6fa41fddd1fc8cdec4861d5b1d6e1a44e',
+            'reference' => '384aa7444a6c795cefb439b59d25260d94c19272',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

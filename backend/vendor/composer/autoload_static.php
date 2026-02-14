@@ -32,7 +32,6 @@ class ComposerStaticInit56fcc15f1a1ce6635f2a211f8e63e848
         'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
         'Database' => __DIR__ . '/../..' . '/config/database.php',
         'JWTHandler' => __DIR__ . '/../..' . '/config/jwt.php',
-        'OTPService' => __DIR__ . '/../..' . '/config/mail.php',
     );
 
     public static function getInitializer(ClassLoader $loader)

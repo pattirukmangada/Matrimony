@@ -9,5 +9,4 @@ return array(
     'Composer\\InstalledVersions' => $vendorDir . '/composer/InstalledVersions.php',
     'Database' => $baseDir . '/config/database.php',
     'JWTHandler' => $baseDir . '/config/jwt.php',
-    'OTPService' => $baseDir . '/config/mail.php',
 );
