@@ -4,6 +4,7 @@ import { ProfileAPI } from "@/lib/api";
 export default function ProfilePage() {
 
   const [profile, setProfile] = useState<any>({});
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -35,11 +36,29 @@ export default function ProfilePage() {
 
   };
 
+  const handleImage = (e:any)=>{
+    const file = e.target.files[0];
+    setImageFile(file);
+  }
+
   const handleSave = async () => {
 
     try {
 
-      await ProfileAPI.update(profile);
+      const formData = new FormData();
+
+      Object.keys(profile).forEach(key=>{
+        formData.append(key, profile[key] ?? "");
+      });
+
+      if(imageFile){
+        formData.append("profile_image", imageFile);
+      }
+
+      await fetch("/backend/api/profile/update.php",{
+        method:"POST",
+        body:formData
+      });
 
       setEditing(false);
 
@@ -47,7 +66,7 @@ export default function ProfilePage() {
 
     } catch (err) {
 
-      console.error("Update failed", err);
+      console.error(err);
       alert("Profile update failed");
 
     }
@@ -69,11 +88,21 @@ export default function ProfilePage() {
       {profile.profile_image && (
         <img
           src={profile.profile_image}
-          className="w-32 h-32 object-cover rounded mb-6"
+          className="w-32 h-32 object-cover rounded mb-4"
+        />
+      )}
+
+      {editing && (
+        <input
+          type="file"
+          onChange={handleImage}
+          className="mb-6"
         />
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+        <Input label="Name" name="full_name" value={profile.full_name} editing={editing} handleChange={handleChange} />
 
         <Input label="Gender" name="gender" value={profile.gender} editing={editing} handleChange={handleChange} type="select" options={["male","female"]} />
 
@@ -103,23 +132,8 @@ export default function ProfilePage() {
 
         <Input label="Annual Income" name="annual_income" value={profile.annual_income} editing={editing} handleChange={handleChange} />
 
-        <Input label="Nakshatra" name="nakshatra" value={profile.nakshatra} editing={editing} handleChange={handleChange} />
-
-        <Input label="Rasi" name="rasi" value={profile.rasi} editing={editing} handleChange={handleChange} />
-
-        <Input label="Gotra" name="gotra" value={profile.gotra} editing={editing} handleChange={handleChange} />
-
-        <Input label="Father Name" name="father_name" value={profile.father_name} editing={editing} handleChange={handleChange} />
-
-        <Input label="Mother Name" name="mother_name" value={profile.mother_name} editing={editing} handleChange={handleChange} />
-
-        <Input label="Siblings" name="siblings" value={profile.siblings} editing={editing} handleChange={handleChange} />
-
-        <Input label="Family Type" name="family_type" value={profile.family_type} editing={editing} handleChange={handleChange} />
-
       </div>
 
-      {/* About Me */}
       <div className="mt-4">
         <label className="block font-medium mb-1">About Me</label>
         <textarea
@@ -159,8 +173,6 @@ export default function ProfilePage() {
   );
 
 }
-
-/* Reusable Input Component */
 
 function Input({ label, name, value, editing, handleChange, type="text", options=[] }: any){
 

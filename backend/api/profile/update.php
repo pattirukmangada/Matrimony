@@ -6,18 +6,18 @@ require_once __DIR__ . '/../../config/jwt.php';
 
 header("Content-Type: application/json");
 
+/* Only POST allowed */
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['error' => 'Method not allowed']);
     exit;
 }
 
-/* Authenticate user */
+/* Authenticate */
 $auth = JWTHandler::requireAuth();
 $userId = $auth->user_id;
 
-/* Get JSON input */
-$input = json_decode(file_get_contents("php://input"), true) ?? [];
+$db = (new Database())->getConnection();
 
 /* Sanitize helper */
 function clean($value, $max = 100){
@@ -25,56 +25,87 @@ function clean($value, $max = 100){
     return htmlspecialchars(substr(trim($value),0,$max),ENT_QUOTES,'UTF-8');
 }
 
-/* Collect all profile fields */
+/* Get form fields */
 
 $fields = [
 
-'gender'         => in_array($input['gender'] ?? '', ['male','female']) ? $input['gender'] : null,
-'date_of_birth'  => $input['date_of_birth'] ?? null,
-'height_cm'      => filter_var($input['height_cm'] ?? null, FILTER_VALIDATE_INT) ?: null,
+'gender'         => $_POST['gender'] ?? null,
+'date_of_birth'  => $_POST['date_of_birth'] ?? null,
+'height_cm'      => $_POST['height_cm'] ?? null,
 
-'religion'       => clean($input['religion'] ?? '',50),
-'caste'          => clean($input['caste'] ?? '',100),
-'mother_tongue'  => clean($input['mother_tongue'] ?? '',50),
+'religion'       => clean($_POST['religion'] ?? '',50),
+'caste'          => clean($_POST['caste'] ?? '',100),
+'mother_tongue'  => clean($_POST['mother_tongue'] ?? '',50),
 
-'marital_status' => in_array($input['marital_status'] ?? '', ['never_married','divorced','widowed','separated'])
-                    ? $input['marital_status'] : 'never_married',
+'marital_status' => $_POST['marital_status'] ?? 'never_married',
 
-'city'           => clean($input['city'] ?? '',100),
-'state'          => clean($input['state'] ?? '',100),
-'country'        => clean($input['country'] ?? '',100),
+'city'           => clean($_POST['city'] ?? '',100),
+'state'          => clean($_POST['state'] ?? '',100),
+'country'        => clean($_POST['country'] ?? '',100),
 
-'education'      => clean($input['education'] ?? '',100),
-'profession'     => clean($input['profession'] ?? '',100),
-'company'        => clean($input['company'] ?? '',100),
-'annual_income'  => clean($input['annual_income'] ?? '',50),
+'education'      => clean($_POST['education'] ?? '',100),
+'profession'     => clean($_POST['profession'] ?? '',100),
+'company'        => clean($_POST['company'] ?? '',100),
+'annual_income'  => clean($_POST['annual_income'] ?? '',50),
 
-'about_me'       => clean($input['about_me'] ?? '',1000),
+'about_me'       => clean($_POST['about_me'] ?? '',1000),
 
-'profile_image'  => clean($input['profile_image'] ?? '',255),
+'nakshatra'      => clean($_POST['nakshatra'] ?? '',50),
+'rasi'           => clean($_POST['rasi'] ?? '',50),
+'gotra'          => clean($_POST['gotra'] ?? '',50),
 
-'nakshatra'      => clean($input['nakshatra'] ?? '',50),
-'rasi'           => clean($input['rasi'] ?? '',50),
-'gotra'          => clean($input['gotra'] ?? '',50),
-
-'father_name'    => clean($input['father_name'] ?? '',100),
-'mother_name'    => clean($input['mother_name'] ?? '',100),
-'siblings'       => clean($input['siblings'] ?? '',50),
-'family_type'    => clean($input['family_type'] ?? '',50)
+'father_name'    => clean($_POST['father_name'] ?? '',100),
+'mother_name'    => clean($_POST['mother_name'] ?? '',100),
+'siblings'       => clean($_POST['siblings'] ?? '',50),
+'family_type'    => clean($_POST['family_type'] ?? '',50)
 
 ];
 
-/* Required fields */
+/* Validate required fields */
 
 if(!$fields['gender'] || !$fields['date_of_birth']){
     http_response_code(422);
     echo json_encode([
-        'error'=>'Gender and date_of_birth required'
+        'error'=>'Gender and Date of Birth required'
     ]);
     exit;
 }
 
-$db = (new Database())->getConnection();
+/* Handle image upload */
+
+if(isset($_FILES['profile_image']) && $_FILES['profile_image']['tmp_name']){
+
+    $dir = __DIR__ . '/../../uploads/profile/';
+
+    if(!file_exists($dir)){
+        mkdir($dir,0777,true);
+    }
+
+    $fileName = time().'_'.basename($_FILES['profile_image']['name']);
+
+    move_uploaded_file(
+        $_FILES['profile_image']['tmp_name'],
+        $dir.$fileName
+    );
+
+    $fields['profile_image'] = '/uploads/profile/'.$fileName;
+}
+
+/* Update user name if provided */
+
+if(isset($_POST['full_name'])){
+
+    $stmt = $db->prepare("
+        UPDATE users 
+        SET full_name = :name
+        WHERE id = :uid
+    ");
+
+    $stmt->execute([
+        'name'=>clean($_POST['full_name'],100),
+        'uid'=>$userId
+    ]);
+}
 
 /* Check profile exists */
 
@@ -95,7 +126,7 @@ if($exists){
 
     $sql = "UPDATE profiles SET ".implode(",",$set)." WHERE user_id=:uid";
 
-    $stmt=$db->prepare($sql);
+    $stmt = $db->prepare($sql);
     $stmt->execute($params);
 
 }else{
@@ -113,5 +144,5 @@ if($exists){
 
 echo json_encode([
     "success"=>true,
-    "message"=>"Profile saved successfully"
+    "message"=>"Profile updated successfully"
 ]);
