@@ -1,8 +1,4 @@
 <?php
-/**
- * POST /api/profile/update.php
- * Create or update own profile
- */
 
 require_once __DIR__ . '/../../config/cors.php';
 require_once __DIR__ . '/../../config/database.php';
@@ -20,109 +16,102 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $auth = JWTHandler::requireAuth();
 $userId = $auth->user_id;
 
-/* Get JSON input safely */
+/* Get JSON input */
 $input = json_decode(file_get_contents("php://input"), true) ?? [];
 
-/* Helper function to sanitize text */
-function clean($value, $max = 100) {
-    if (!$value) return null;
-    return htmlspecialchars(substr(trim($value), 0, $max), ENT_QUOTES, 'UTF-8');
+/* Sanitize helper */
+function clean($value, $max = 100){
+    if(!$value) return null;
+    return htmlspecialchars(substr(trim($value),0,$max),ENT_QUOTES,'UTF-8');
 }
 
-/* Validate and collect fields */
+/* Collect all profile fields */
+
 $fields = [
 
-    /* BASIC DETAILS */
-    'gender'         => in_array($input['gender'] ?? '', ['male','female']) ? $input['gender'] : null,
-    'date_of_birth'  => $input['date_of_birth'] ?? null,
-    'height_cm'      => filter_var($input['height_cm'] ?? null, FILTER_VALIDATE_INT, [
-                            'options' => ['min_range' => 100, 'max_range' => 250]
-                        ]) ?: null,
+'gender'         => in_array($input['gender'] ?? '', ['male','female']) ? $input['gender'] : null,
+'date_of_birth'  => $input['date_of_birth'] ?? null,
+'height_cm'      => filter_var($input['height_cm'] ?? null, FILTER_VALIDATE_INT) ?: null,
 
-    /* RELIGION */
-    'religion'       => clean($input['religion'] ?? '', 50),
-    'caste'          => clean($input['caste'] ?? '', 100),
-    'mother_tongue'  => clean($input['mother_tongue'] ?? '', 50),
+'religion'       => clean($input['religion'] ?? '',50),
+'caste'          => clean($input['caste'] ?? '',100),
+'mother_tongue'  => clean($input['mother_tongue'] ?? '',50),
 
-    'marital_status' => in_array($input['marital_status'] ?? '', 
-                        ['never_married','divorced','widowed','separated'])
-                        ? $input['marital_status'] : 'never_married',
+'marital_status' => in_array($input['marital_status'] ?? '', ['never_married','divorced','widowed','separated'])
+                    ? $input['marital_status'] : 'never_married',
 
-    /* LOCATION */
-    'city'           => clean($input['city'] ?? '', 100),
-    'state'          => clean($input['state'] ?? '', 100),
+'city'           => clean($input['city'] ?? '',100),
+'state'          => clean($input['state'] ?? '',100),
+'country'        => clean($input['country'] ?? '',100),
 
-    /* EDUCATION & JOB */
-    'education'      => clean($input['education'] ?? '', 100),
-    'profession'     => clean($input['profession'] ?? '', 100),
-    'company'        => clean($input['company'] ?? '', 100),
-    'annual_income'  => clean($input['annual_income'] ?? '', 50),
+'education'      => clean($input['education'] ?? '',100),
+'profession'     => clean($input['profession'] ?? '',100),
+'company'        => clean($input['company'] ?? '',100),
+'annual_income'  => clean($input['annual_income'] ?? '',50),
 
-    /* BIO */
-    'about_me'       => clean($input['about_me'] ?? '', 1000),
+'about_me'       => clean($input['about_me'] ?? '',1000),
 
-    /* HOROSCOPE */
-    'nakshatra'      => clean($input['nakshatra'] ?? '', 50),
-    'rasi'           => clean($input['rasi'] ?? '', 50),
-    'gotra'          => clean($input['gotra'] ?? '', 50),
+'profile_image'  => clean($input['profile_image'] ?? '',255),
 
-    /* FAMILY */
-    'father_name'    => clean($input['father_name'] ?? '', 100),
-    'mother_name'    => clean($input['mother_name'] ?? '', 100),
-    'siblings'       => clean($input['siblings'] ?? '', 50),
-    'family_type'    => clean($input['family_type'] ?? '', 50),
+'nakshatra'      => clean($input['nakshatra'] ?? '',50),
+'rasi'           => clean($input['rasi'] ?? '',50),
+'gotra'          => clean($input['gotra'] ?? '',50),
+
+'father_name'    => clean($input['father_name'] ?? '',100),
+'mother_name'    => clean($input['mother_name'] ?? '',100),
+'siblings'       => clean($input['siblings'] ?? '',50),
+'family_type'    => clean($input['family_type'] ?? '',50)
 
 ];
 
-/* Required fields check */
-if (!$fields['gender'] || !$fields['date_of_birth']) {
+/* Required fields */
+
+if(!$fields['gender'] || !$fields['date_of_birth']){
     http_response_code(422);
     echo json_encode([
-        'error' => 'Gender and date of birth are required'
+        'error'=>'Gender and date_of_birth required'
     ]);
     exit;
 }
 
 $db = (new Database())->getConnection();
 
-/* Check if profile already exists */
-$stmt = $db->prepare("SELECT id FROM profiles WHERE user_id = :user_id");
-$stmt->execute(['user_id' => $userId]);
+/* Check profile exists */
+
+$stmt = $db->prepare("SELECT id FROM profiles WHERE user_id=:uid");
+$stmt->execute(['uid'=>$userId]);
+
 $exists = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if ($exists) {
+if($exists){
 
-    /* UPDATE PROFILE */
+    $set = [];
+    $params = ['uid'=>$userId];
 
-    $setClauses = [];
-    $params = ['user_id' => $userId];
-
-    foreach ($fields as $key => $value) {
-        $setClauses[] = "$key = :$key";
-        $params[$key] = $value;
+    foreach($fields as $k=>$v){
+        $set[]="$k=:$k";
+        $params[$k]=$v;
     }
 
-    $sql = "UPDATE profiles SET " . implode(", ", $setClauses) . " WHERE user_id = :user_id";
+    $sql = "UPDATE profiles SET ".implode(",",$set)." WHERE user_id=:uid";
 
-    $stmt = $db->prepare($sql);
+    $stmt=$db->prepare($sql);
     $stmt->execute($params);
 
-} else {
+}else{
 
-    /* INSERT PROFILE */
+    $fields['user_id']=$userId;
 
-    $fields['user_id'] = $userId;
+    $cols = implode(",",array_keys($fields));
+    $vals = ":".implode(",:",array_keys($fields));
 
-    $columns = implode(", ", array_keys($fields));
-    $placeholders = ":" . implode(", :", array_keys($fields));
+    $sql="INSERT INTO profiles ($cols) VALUES ($vals)";
 
-    $sql = "INSERT INTO profiles ($columns) VALUES ($placeholders)";
-
-    $stmt = $db->prepare($sql);
+    $stmt=$db->prepare($sql);
     $stmt->execute($fields);
 }
 
 echo json_encode([
-    'success' => true,
-    'message' => 'Profile updated successfully'
+    "success"=>true,
+    "message"=>"Profile saved successfully"
 ]);
