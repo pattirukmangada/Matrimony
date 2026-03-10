@@ -13,25 +13,27 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-/* Authenticate */
+/* Authenticate user */
 $auth = JWTHandler::requireAuth();
 $userId = $auth->user_id;
 
 $db = (new Database())->getConnection();
 
 /* Sanitize helper */
-function clean($value, $max = 100){
+function clean($value,$max=100){
     if(!$value) return null;
     return htmlspecialchars(substr(trim($value),0,$max),ENT_QUOTES,'UTF-8');
 }
 
-/* Get form fields */
+/* Collect fields */
 
 $fields = [
 
 'gender'         => $_POST['gender'] ?? null,
 'date_of_birth'  => $_POST['date_of_birth'] ?? null,
-'height_cm'      => $_POST['height_cm'] ?? null,
+
+'height_cm'      => isset($_POST['height_cm']) ? (int)$_POST['height_cm'] : null,
+'weight_kg'      => isset($_POST['weight_kg']) ? (int)$_POST['weight_kg'] : null,
 
 'religion'       => clean($_POST['religion'] ?? '',50),
 'caste'          => clean($_POST['caste'] ?? '',100),
@@ -46,6 +48,7 @@ $fields = [
 'education'      => clean($_POST['education'] ?? '',100),
 'profession'     => clean($_POST['profession'] ?? '',100),
 'company'        => clean($_POST['company'] ?? '',100),
+
 'annual_income'  => clean($_POST['annual_income'] ?? '',50),
 
 'about_me'       => clean($_POST['about_me'] ?? '',1000),
@@ -57,7 +60,15 @@ $fields = [
 'father_name'    => clean($_POST['father_name'] ?? '',100),
 'mother_name'    => clean($_POST['mother_name'] ?? '',100),
 'siblings'       => clean($_POST['siblings'] ?? '',50),
-'family_type'    => clean($_POST['family_type'] ?? '',50)
+
+'family_type'    => clean($_POST['family_type'] ?? '',50),
+'family_status'  => clean($_POST['family_status'] ?? '',100),
+'family_income'  => clean($_POST['family_income'] ?? '',50),
+
+'diet'           => $_POST['diet'] ?? null,
+'smoking'        => $_POST['smoking'] ?? null,
+'drinking'       => $_POST['drinking'] ?? null,
+'manglik'        => $_POST['manglik'] ?? null
 
 ];
 
@@ -71,11 +82,19 @@ if(!$fields['gender'] || !$fields['date_of_birth']){
     exit;
 }
 
-/* Handle image upload */
+/* Handle profile image upload */
 
 if(isset($_FILES['profile_image']) && $_FILES['profile_image']['tmp_name']){
 
-    $dir = __DIR__ . '/../../uploads/profile/';
+    $allowed = ['image/jpeg','image/png','image/webp'];
+
+    if(!in_array($_FILES['profile_image']['type'],$allowed)){
+        http_response_code(422);
+        echo json_encode(['error'=>'Invalid image format']);
+        exit;
+    }
+
+    $dir = __DIR__.'/../../uploads/profile/';
 
     if(!file_exists($dir)){
         mkdir($dir,0777,true);
@@ -91,50 +110,52 @@ if(isset($_FILES['profile_image']) && $_FILES['profile_image']['tmp_name']){
     $fields['profile_image'] = '/uploads/profile/'.$fileName;
 }
 
-/* Update user name if provided */
+/* Update user name */
 
 if(isset($_POST['full_name'])){
 
-    $stmt = $db->prepare("
-        UPDATE users 
-        SET full_name = :name
-        WHERE id = :uid
+    $stmt=$db->prepare("
+        UPDATE users
+        SET full_name=:name
+        WHERE id=:uid
     ");
 
     $stmt->execute([
-        'name'=>clean($_POST['full_name'],100),
-        'uid'=>$userId
+        "name"=>clean($_POST['full_name'],100),
+        "uid"=>$userId
     ]);
 }
 
-/* Check profile exists */
+/* Check if profile exists */
 
-$stmt = $db->prepare("SELECT id FROM profiles WHERE user_id=:uid");
-$stmt->execute(['uid'=>$userId]);
+$stmt=$db->prepare("SELECT id FROM profiles WHERE user_id=:uid");
+$stmt->execute(["uid"=>$userId]);
 
-$exists = $stmt->fetch(PDO::FETCH_ASSOC);
+$exists=$stmt->fetch(PDO::FETCH_ASSOC);
+
+/* Update profile */
 
 if($exists){
 
-    $set = [];
-    $params = ['uid'=>$userId];
+    $set=[];
+    $params=["uid"=>$userId];
 
     foreach($fields as $k=>$v){
         $set[]="$k=:$k";
         $params[$k]=$v;
     }
 
-    $sql = "UPDATE profiles SET ".implode(",",$set)." WHERE user_id=:uid";
+    $sql="UPDATE profiles SET ".implode(",",$set)." WHERE user_id=:uid";
 
-    $stmt = $db->prepare($sql);
+    $stmt=$db->prepare($sql);
     $stmt->execute($params);
 
 }else{
 
     $fields['user_id']=$userId;
 
-    $cols = implode(",",array_keys($fields));
-    $vals = ":".implode(",:",array_keys($fields));
+    $cols=implode(",",array_keys($fields));
+    $vals=":".implode(",:",array_keys($fields));
 
     $sql="INSERT INTO profiles ($cols) VALUES ($vals)";
 
