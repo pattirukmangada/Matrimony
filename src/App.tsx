@@ -1,8 +1,9 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import Index from "./pages/Index";
 import AboutUs from "./pages/AboutUs";
@@ -30,64 +31,82 @@ import AdminRoute from "./components/AdminRoute";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
 
-      <BrowserRouter>
-        <Routes>
+<QueryClientProvider client={queryClient}>
 
-          {/* ================= USER ROUTES ================= */}
+<TooltipProvider>
 
-          <Route path="/" element={<Index />} />
-          <Route path="/about" element={<AboutUs />} />
-          <Route path="/contact" element={<ContactUs />} />
+<Toaster />
+<Sonner />
 
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+<BrowserRouter>
 
-          <Route path="/profiles" element={<SearchPage />} />
-          <Route path="/profile/:id" element={<Profile />} />
+<Routes>
 
-          <Route path="/subscription" element={<Subscription />} />
+{/* ================= PUBLIC ROUTES ================= */}
 
-          {/* ================= USER DASHBOARD ================= */}
+<Route path="/" element={<Index />} />
+<Route path="/about" element={<AboutUs />} />
+<Route path="/contact" element={<ContactUs />} />
 
-          <Route path="/dashboard" element={<DashboardLayout />}>
+<Route path="/login" element={<Login />} />
+<Route path="/register" element={<Register />} />
 
-            <Route path="profile" element={<ProfilePage />} />
+<Route path="/profiles" element={<SearchPage />} />
+<Route path="/profile/:id" element={<Profile />} />
 
-            <Route path="personal" element={<PersonalDetailsPage />} />
+<Route path="/subscription" element={<Subscription />} />
 
-            <Route path="preference" element={<PreferencePage />} />
+{/* ================= USER DASHBOARD ================= */}
 
-            <Route path="photos" element={<PhotosPage />} />
+<Route path="/dashboard" element={<DashboardLayout />}>
 
-          </Route>
+{/* Default page when user enters dashboard */}
 
-          {/* ================= ADMIN ================= */}
+<Route
+index
+element={<Navigate to="/dashboard/profile" replace />}
+/>
 
-          <Route path="/admin/login" element={<AdminLogin />} />
+<Route path="profile" element={<ProfilePage />} />
 
-          {/* <Route
-            path="/admin/dashboard"
-            element={
-              <AdminRoute>
-                <AdminDashboard />
-              </AdminRoute>
-            }
-          /> */}
+<Route path="personal" element={<PersonalDetailsPage />} />
 
-          {/* ================= 404 ================= */}
+<Route path="preference" element={<PreferencePage />} />
 
-          <Route path="*" element={<NotFound />} />
+<Route path="photos" element={<PhotosPage />} />
 
-        </Routes>
-      </BrowserRouter>
+</Route>
 
-    </TooltipProvider>
-  </QueryClientProvider>
+{/* ================= ADMIN ================= */}
+
+<Route path="/admin/login" element={<AdminLogin />} />
+
+{/* Example protected admin route */}
+
+{/* 
+<Route
+path="/admin/dashboard"
+element={
+<AdminRoute>
+<AdminDashboard />
+</AdminRoute>
+}
+/>
+*/}
+
+{/* ================= 404 ================= */}
+
+<Route path="*" element={<NotFound />} />
+
+</Routes>
+
+</BrowserRouter>
+
+</TooltipProvider>
+
+</QueryClientProvider>
+
 );
 
 export default App;
