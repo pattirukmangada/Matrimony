@@ -32,14 +32,21 @@ const Login = () => {
     setLoading(true);
 
     try {
-      await AuthAPI.login({ email, password });
+      const res = await AuthAPI.login({ email, password });
+
+      // Optional: store token if returned
+      if (res?.token) {
+        localStorage.setItem("token", res.token);
+      }
 
       toast({
         title: "Welcome back!",
         description: "Login successful",
       });
 
-      navigate("/profile");
+      // ✅ Redirect to dashboard
+      navigate("/dashboard/profile");
+
     } catch (err) {
       const msg =
         err instanceof ApiError
@@ -62,7 +69,8 @@ const Login = () => {
 
   return (
     <div className="flex min-h-screen">
-      {/* Left Panel */}
+      
+      {/* LEFT PANEL */}
       <div className="hidden w-1/2 bg-gradient-hero lg:flex lg:flex-col lg:items-center lg:justify-center lg:p-12">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
@@ -71,22 +79,26 @@ const Login = () => {
           className="text-center"
         >
           <Heart className="mx-auto mb-6 h-16 w-16 text-primary-foreground/80 fill-current animate-float" />
+
           <h2 className="mb-4 font-display text-4xl font-bold text-primary-foreground">
             Welcome Back
           </h2>
+
           <p className="max-w-sm text-primary-foreground/70">
             Your journey to finding the perfect life partner continues here.
           </p>
         </motion.div>
       </div>
 
-      {/* Login Form */}
+      {/* LOGIN FORM */}
       <div className="flex w-full items-center justify-center p-8 lg:w-1/2">
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           className="w-full max-w-md"
         >
+
+          {/* Logo */}
           <Link to="/" className="mb-8 flex items-center gap-2">
             <Heart className="h-7 w-7 text-primary fill-primary" />
             <span className="font-display text-xl font-bold">
@@ -97,12 +109,14 @@ const Login = () => {
           <h1 className="mb-2 font-display text-3xl font-bold text-foreground">
             Sign In
           </h1>
+
           <p className="mb-8 text-muted-foreground">
             Enter your credentials to access your account
           </p>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-            {/* Email */}
+
+            {/* EMAIL */}
             <div>
               <Label htmlFor="email">Email</Label>
               <Input
@@ -116,9 +130,10 @@ const Login = () => {
               />
             </div>
 
-            {/* Password */}
+            {/* PASSWORD */}
             <div>
               <Label htmlFor="password">Password</Label>
+
               <div className="relative mt-1.5">
                 <Input
                   id="password"
@@ -128,6 +143,7 @@ const Login = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}
                 />
+
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
@@ -138,8 +154,9 @@ const Login = () => {
               </div>
             </div>
 
-            {/* Remember / Forgot */}
+            {/* REMEMBER + FORGOT */}
             <div className="flex items-center justify-between text-sm">
+
               <label className="flex items-center gap-2 text-muted-foreground">
                 <input type="checkbox" className="rounded border-border" />
                 Remember me
@@ -148,9 +165,10 @@ const Login = () => {
               <a href="#" className="text-primary hover:underline">
                 Forgot Password?
               </a>
+
             </div>
 
-            {/* User Login Button */}
+            {/* USER LOGIN */}
             <Button
               variant="crimson"
               size="lg"
@@ -161,7 +179,7 @@ const Login = () => {
               {loading ? "Signing in..." : "Sign In"}
             </Button>
 
-            {/* Admin Login Button */}
+            {/* ADMIN LOGIN */}
             <Button
               type="button"
               variant="outline"
@@ -171,6 +189,7 @@ const Login = () => {
             >
               Admin Login
             </Button>
+
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
@@ -182,6 +201,7 @@ const Login = () => {
               Register Free
             </Link>
           </p>
+
         </motion.div>
       </div>
     </div>
