@@ -29,29 +29,52 @@ function clean($value, $max = 100) {
     return htmlspecialchars(substr(trim($value), 0, $max), ENT_QUOTES, 'UTF-8');
 }
 
-/* Validate fields */
+/* Validate and collect fields */
 $fields = [
+
+    /* BASIC DETAILS */
     'gender'         => in_array($input['gender'] ?? '', ['male','female']) ? $input['gender'] : null,
     'date_of_birth'  => $input['date_of_birth'] ?? null,
     'height_cm'      => filter_var($input['height_cm'] ?? null, FILTER_VALIDATE_INT, [
                             'options' => ['min_range' => 100, 'max_range' => 250]
                         ]) ?: null,
+
+    /* RELIGION */
     'religion'       => clean($input['religion'] ?? '', 50),
     'caste'          => clean($input['caste'] ?? '', 100),
     'mother_tongue'  => clean($input['mother_tongue'] ?? '', 50),
-    'marital_status' => in_array($input['marital_status'] ?? '', ['never_married','divorced','widowed','separated'])
-                        ? $input['marital_status']
-                        : 'never_married',
+
+    'marital_status' => in_array($input['marital_status'] ?? '', 
+                        ['never_married','divorced','widowed','separated'])
+                        ? $input['marital_status'] : 'never_married',
+
+    /* LOCATION */
     'city'           => clean($input['city'] ?? '', 100),
     'state'          => clean($input['state'] ?? '', 100),
+
+    /* EDUCATION & JOB */
     'education'      => clean($input['education'] ?? '', 100),
     'profession'     => clean($input['profession'] ?? '', 100),
     'company'        => clean($input['company'] ?? '', 100),
     'annual_income'  => clean($input['annual_income'] ?? '', 50),
+
+    /* BIO */
     'about_me'       => clean($input['about_me'] ?? '', 1000),
+
+    /* HOROSCOPE */
+    'nakshatra'      => clean($input['nakshatra'] ?? '', 50),
+    'rasi'           => clean($input['rasi'] ?? '', 50),
+    'gotra'          => clean($input['gotra'] ?? '', 50),
+
+    /* FAMILY */
+    'father_name'    => clean($input['father_name'] ?? '', 100),
+    'mother_name'    => clean($input['mother_name'] ?? '', 100),
+    'siblings'       => clean($input['siblings'] ?? '', 50),
+    'family_type'    => clean($input['family_type'] ?? '', 50),
+
 ];
 
-/* Required fields */
+/* Required fields check */
 if (!$fields['gender'] || !$fields['date_of_birth']) {
     http_response_code(422);
     echo json_encode([
